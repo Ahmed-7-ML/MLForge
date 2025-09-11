@@ -79,7 +79,7 @@ At the end, they will get a **ready-to-use trained model + REST API**.
 - **Ziad Moataz Hawana**
 - **Mohamed Adel Tawfik**
 - **Ahmed Mohamed Abdel-Mordi**
-- **Salem Mohamed El-Katatny**
+- **Salim Mohamed El-Katatny**
 
 ### Under the supervision of Eng. **Mostafa Sami Atlam**
 
