@@ -99,7 +99,6 @@ Automated-ML-Lifecycle/
 │   └── frontend/
 │       └── app.py        # Streamlit Web UI
 │
-│── visuals/              # Generated charts and visuals
 │── requirements.txt
 │── README.md
 ```
