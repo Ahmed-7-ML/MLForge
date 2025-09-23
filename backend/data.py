@@ -1,10 +1,5 @@
-# backend/data.py
-
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-
-
 # 1- Loading the Data
 def load_data(file_path):
     """
