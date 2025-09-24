@@ -1,4 +1,10 @@
-from backend.data import load_data, clean_data
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 
 def perform_eda(df):
+    """
+    Perform Exploratory Data Analysis (EDA) on the dataset.
+    Includes summary info and multiple visualizations.
+    """
     pass
