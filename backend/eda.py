@@ -1,9 +1,10 @@
+# ===== eda_script.py =====
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
+# إعدادات الشكل
 sns.set(style="whitegrid", palette="muted")
 plt.rcParams["figure.figsize"] = (10, 6)
 
@@ -22,7 +23,7 @@ print("\n Missing Values:\n", df.isnull().sum())
 print("\n Summary Stats:\n", df.describe(include="all").T)
 
 # ==============================
-# 3) Handle Missing Values 
+# 3) Handle Missing Values (اختياري)
 # ==============================
 df = df.dropna()  
 
@@ -67,7 +68,7 @@ if len(numeric_cols) > 1:
 # ==============================
 # 7) Pairplot
 # ==============================
-if 1 < len(numeric_cols) <= 5: 
+if 1 < len(numeric_cols) <= 5:  # لتفادي البطء
     sns.pairplot(df[numeric_cols].dropna())
     plt.show()
 
