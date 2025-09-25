@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-sns.set(style="whitegrid", palette="muted")
+sns.set_style(style="whitegrid", palette="muted")
 plt.rcParams["figure.figsize"] = (10, 6)
 
 

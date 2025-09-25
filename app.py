@@ -1,36 +1,49 @@
-import os
-from backend.data import load_data, clean_data
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import io
 from backend.eda import perform_eda
+from backend.data import load_data, clean_data
 
 
-def main():
-    dataset_path = "E:\myy projects\Team Project\ZAMESAi-main\ZAMESAi-main\iris.csv"   #### write full path in your pc 
-
-    # 1. Load dataset
-    try:
-        data = load_data(dataset_path)
-        print(f"Data loaded successfully from {dataset_path}")
-    except FileNotFoundError:
-        print(f"Dataset not found: {dataset_path}")
-        return
-    except ValueError as e:
-        print(f"Error loading dataset: {e}")
-        return
-
-    # 2. Clean dataset
-    cleaned_data = clean_data(data)
-    print("Data cleaned successfully.")
-
-    # 3. Perform EDA 
-    perform_eda(cleaned_data)
-    print("EDA completed. All plots generated.")
-
-    # 4. Save cleaned dataset for later use
-    os.makedirs("outputs", exist_ok=True)
-    output_path = os.path.join("outputs", "cleaned_dataset.csv")
-    cleaned_data.to_csv(output_path, index=False)
-    print(f"Cleaned dataset saved to: {output_path}")
+# Global Configurations
+st.set_page_config(page_title="EDA Tool", layout="wide")
+sns.set_style(style="whitegrid", palette="muted")
+plt.rcParams["figure.figsize"] = (10, 6)
 
 
-if __name__ == "__main__":
-    main()
+# Streamlit App
+st.title("📊 EDA & Data Cleaning App")
+
+# Upload Tabular File
+uploaded_file = st.file_uploader("Upload your dataset (CSV, Excel, JSON)", type=[
+                                "csv", "xlsx", "xls", "json"])
+
+if uploaded_file is not None:
+    # Save uploaded file to a temporary location
+    file_bytes = uploaded_file.read()
+    file_name = uploaded_file.name
+
+    with open(file_name, "wb") as f:
+        f.write(file_bytes)
+
+    # After we load file -> load data
+    df = load_data(file_name)
+
+    st.subheader("📌 Preview of Data")
+    st.dataframe(df.head())
+
+    # Cleaning Data
+    st.subheader("🧼 Data Cleaning")
+    do_clean = st.checkbox("🧹 Run Data Cleaning Pipeline", value=True)
+
+    if do_clean:
+        df = clean_data(df)
+        st.success("✅ Data cleaned successfully!")
+
+    # Run EDA
+    st.subheader("🔍 Exploratory Data Analysis (EDA)")
+    st.info("The following plots and statistics are generated automatically:")
+
+    perform_eda(df)
