@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import io
 from backend.eda import perform_eda
 from backend.data import load_data, clean_data
 
