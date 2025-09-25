@@ -10,12 +10,13 @@ def load_data(file_path):
     Load data from a file into a pandas DataFrame.
     (CSV, Excel, JSON) -> Only Tabular Data.
     """
+    file_name = file_path.name.lower()
 
-    if file_path.endswith('.csv'):
+    if file_name.endswith('.csv'):
         df = pd.read_csv(file_path)
-    elif file_path.endswith(('.xlsx', '.xls')):
+    elif file_name.endswith(('.xlsx', '.xls')):
         df = pd.read_excel(file_path)
-    elif file_path.endswith('.json'):
+    elif file_name.endswith('.json'):
         df = pd.read_json(file_path)
     else:
         raise ValueError(
