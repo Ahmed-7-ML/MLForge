@@ -1,117 +1,97 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from backend.data import load_data, clean_data
-from backend.eda import perform_eda
+from pipeline.data import load_data, clean_data
+from pipeline.eda import perform_eda
 
-# Set plot style
-sns.set_style(style="whitegrid")
-# plt.rcParams["figure.figsize"] = (10, 6)
+# ---------------------------------
+# App Configuration
+# ---------------------------------
+st.set_page_config(
+    page_title='ZEMASAi | Auto-ML',
+    page_icon='🤖',
+    layout='wide',
+    initial_sidebar_state='auto'
+)
 
-# App configuration
-st.set_page_config(page_title="Interactive EDA App",
-                   layout="wide", page_icon='📉')
-st.title("📊 Interactive Data Uploader & EDA Dashboard")
+# ---------------------------------
+# Sidebar Naivgation
+# ---------------------------------
+st.sidebar.title("App Journey")
+page = st.sidebar.radio("Go To", 
+    ["🏠 Home", "🧹 Data Cleaning", "📊 EDA", "🤖 Modeling", "🚀 Deployment"])
 
-# Session state management
-if 'df' not in st.session_state:
+# ---------------------------------
+# Main Page Content
+# ---------------------------------
+st.title("ZEMASAi App")
+st.markdown("**Smoothly, Build your Model**")
+
+# ---------------------------------
+# Store uploaded data across pages
+# ---------------------------------
+if "df" not in st.session_state:
     st.session_state.df = None
-if 'df_cleaned' not in st.session_state:
-    st.session_state.df_cleaned = None
-
-# --- Main App Logic ---
-
-# Sidebar for file upload and EDA controls
-with st.sidebar:
-    st.header("⚙️ Settings")
-
-    st.subheader("📁 File Upload")
-    file = st.file_uploader("Upload your Tabular file", type=[
-                            "csv", "xlsx", "xls", "json"])
-
-    if st.button("Reset App", help="Clear all uploaded data and start over."):
-        st.session_state.df = None
-        st.session_state.df_cleaned = None
-        st.rerun()
-
-    # --- EDA Controls ---
-    st.markdown("---")
-    st.subheader("📈 EDA Controls")
-
-    # Placeholder for EDA controls
-    if st.session_state.df_cleaned is not None and not st.session_state.df_cleaned.empty:
-        df_cleaned = st.session_state.df_cleaned
-        numeric_cols = df_cleaned.select_dtypes(
-            include=[np.number]).columns.tolist()
-        cat_cols = df_cleaned.select_dtypes(
-            include=["object", "category"]).columns.tolist()
-
-        selected_num_cols = st.multiselect(
-            "Select Numerical Columns for EDA",
-            options=numeric_cols,
-            default=numeric_cols
-        )
-
-        selected_cat_cols = st.multiselect(
-            "Select Categorical Columns for EDA",
-            options=cat_cols,
-            default=cat_cols
-        )
-
-        st.session_state['selected_num_cols'] = selected_num_cols
-        st.session_state['selected_cat_cols'] = selected_cat_cols
-    else:
-        st.info("Upload a file to see EDA options.")
 
 
-# Load file into session state and perform automatic cleaning
-if file is not None:
-    file_name = file.name.lower()
-    if st.session_state.df is None or st.session_state.df.empty or st.session_state.get('file_name') != file_name:
+# ---------------------------------
+# Home Page
+# ---------------------------------
+if page == "🏠 Home":
+    st.write("🏡Welcome to ML Life Cycle Platform")
+    st.markdown("Upload your dataset to begin your machine learning journey.")
+    uploaded_file = st.sidebar.file_uploader("Select a File (CSV, Excel, JSON)", type=['csv', 'json', 'xls', 'xlsx'])
+
+    if uploaded_file is not None:
         try:
-            st.session_state.df = load_data(file)
-            with st.spinner("Performing automatic data cleaning..."):
-                st.info("Data is uploaded and Cleaning is Running Now...")
-                st.write(
-                    f"Shape before cleaning = {st.session_state.df.shape}")
-                st.session_state.df_cleaned = clean_data(st.session_state.df)
-                st.write(f"Shape become = {st.session_state.df_cleaned.shape}")
-            st.session_state['file_name'] = file_name
-            st.success("File uploaded and data cleaned successfully!")
-        except Exception as e:
-            st.error(f"Error reading or cleaning file: {e}")
-            st.session_state.df = None
-else:
-    st.info("Awaiting file upload...")
+            df = load_data(uploaded_file)
+            # Save data in Session
+            st.session_state.df = df
+            st.write("#### 🧾Raw Data Preview")
+            st.dataframe(df.head())
+        except ValueError as e:
+            st.error(str(e))
 
-# Main content
-df = st.session_state.df_cleaned
+# ---------------------------------
+# Data Cleaning Page
+# ---------------------------------
+elif page == '🧹 Data Cleaning':
+    st.header("🧽Data Cleaning Stage")
+    if st.session_state.df is not None:
+        df_clean = clean_data(st.session_state.df)
+        # Update the Data
+        st.session_state.df = df_clean
+        st.success("✅ Data cleaned successfully!")
+        st.write("### 🧾 Cleaned Data Preview")
+        st.dataframe(df_clean.head())
+    else:
+        st.warning("⚠️ Please upload data from the Home page first.")
 
-if df is not None and not df.empty:
-    tab_overview, tab_eda = st.tabs(
-        ["📝 Data Overview & Cleaning", "📈 EDA Visualizer"])
+# ---------------------------------
+# Dashboard Page
+# ---------------------------------
+elif page == "📊 EDA":
+    st.header("📈 Exploratory Data Analysis (EDA)")
+    if st.session_state.df is not None:
+        perform_eda(st.session_state.df)
+    else:
+        st.warning("⚠️ Please upload and clean data before performing EDA.")
 
-    with tab_overview:
-        st.header("Data Overview & Cleaning")
+# ---------------------------------
+# Modeling Page
+# ---------------------------------
+elif page == "🤖 Modeling":
+    st.header("🤖 Build and Train Models")
+    if st.session_state.df is not None:
+        st.info("Model training and evaluation will appear here soon.")
+    else:
+        st.warning("⚠️ Please upload and clean data before modeling.")
 
-        st.subheader("Dataset Information")
-        st.write("Shape:", df.shape)
-        st.write("Data Types:")
-        st.dataframe(df.dtypes, use_container_width=True)
-
-        st.subheader("Summary Statistics")
-        st.dataframe(df.describe(include="all").T, use_container_width=True)
-
-        st.subheader("Sample of Cleaned Data")
-        n_rows = st.slider(
-            "Select number of rows to display", 5, 50, 10, step=5)
-        st.dataframe(df.head(n_rows), use_container_width=True)
-
-    with tab_eda:
-        st.header("Exploratory Data Analysis")
-        # Pass the selected columns to the EDA function
-        selected_num_cols = st.session_state.get('selected_num_cols', [])
-        selected_cat_cols = st.session_state.get('selected_cat_cols', [])
-        perform_eda(df, selected_num_cols, selected_cat_cols)
+# ---------------------------------
+# Deployment Page
+# ---------------------------------
+elif page == "🚀 Deployment":
+    st.header("🚀 Deployment and Prediction")
+    if st.session_state.df is not None:
+        st.info("Deploy your trained model here.")
+    else:
+        st.warning("⚠️ Please complete the previous steps first.")

@@ -1,5 +1,8 @@
 # ====================================
-# Data Loading & Cleaning Script
+# Data Loading & Cleaning Script :-
+# This File is responsible for Loading data from different formats of Tabular Data (CSV, Excel Sheet Or JSON).
+# Then we apply data cleaning(Handle missing values, Drop Duplicates, Normalize Column Names & Column Values, Fix Data Types).
+# Finally, We introduce a Report for the user about what done on this data and add the ability to download this report.
 # ====================================
 
 import pandas as pd
@@ -29,12 +32,10 @@ def load_data(file_path):
     elif file_name.endswith(".json"):
         df = pd.read_json(file_path)
     else:
-        raise ValueError(
-            "❌ Unsupported File Format. Please upload CSV, Excel, or JSON.")
+        raise ValueError("❌ Unsupported File Format. Please upload CSV, Excel, or JSON.")
 
-    st.success(f"✅ Data Loaded Successfully! Shape = {df.shape}")
+    st.success(f"✅ Data Loaded Successfully!\nShape = {df.shape}")
     return df
-
 
 # ==============================
 # 2- Full Cleaning Pipeline
@@ -49,6 +50,9 @@ def clean_data(df):
     """
     log = {}
     st.info("Starting data cleaning pipeline...")
+
+    with st.expander("Normalize Column Names and Values"):
+        df = normalize_cols(df, log)
 
     # Missing values
     with st.expander("Handling Missing Values"):
@@ -68,6 +72,18 @@ def clean_data(df):
 
     return df
 
+# ========================================
+# Column Names and Values Normalization
+# ========================================
+def normalize_cols(df, log=None):
+    """
+    Normalize Column Names and Values to be in lower case and replace spaces with underscores
+    Return a Cleaned Data Frame
+    """
+    df.columns = df.columns.str.lower().str.replace(' ', '_')
+    for col in df.select_dtypes(include='object').columns:
+        df[col] = df[col].str.replace(' ', '_').str.lower()
+    return df
 
 # ==============================
 # Handle Missing
@@ -114,7 +130,6 @@ def handle_missing(df, log=None):
 
     return df2
 
-
 # ==============================
 # Remove Duplicates
 # ==============================
@@ -133,7 +148,6 @@ def remove_duplicates(df, log=None):
         log["duplicates_removed"] = removed
 
     return df2
-
 
 # ==============================
 # Clip Outliers

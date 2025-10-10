@@ -1,8 +1,8 @@
 streamlit
 pandas
-scikit-learn
-joblib
-fastapi
-uvicorn[standard]
 numpy
-pandas-profiling
+plotly
+matplotlib
+seaborn
+openpyxl
+reportlab

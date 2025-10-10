@@ -24,8 +24,7 @@ def perform_eda(df, selected_num_cols=None, selected_cat_cols=None):
     # --- Numeric Distributions (Histograms and Boxplots) ---
     if numeric_cols:
         st.subheader("🔢 Numeric Distributions")
-        nbins = st.radio("Select Number of Bins for Histograms",
-                         options=[5, 10, 15, 20], index=1)
+        nbins = st.radio("Select Number of Bins for Histograms", options=[5, 10, 15, 20], index=1)
 
         # Determine number of rows for subplots
         num_rows_hist = len(numeric_cols)
