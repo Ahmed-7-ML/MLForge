@@ -1,3 +1,11 @@
+# ====================================
+# Exploratory Data Analysis Script:-
+# This script is responsible of building a simple dashboard that contains:
+# Numerical Variables Histograms and their box plots
+# Categorical Variables Bar plot vs. Target and Count Plot
+# Bivariate Analysis -> Scatter plot between variables
+# Multivariate Analysis -> Correlation Matrix
+# ====================================
 import pandas as pd
 import numpy as np
 import plotly.express as px
