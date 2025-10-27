@@ -93,8 +93,7 @@ Automated-ML-Lifecycle/
 │   ├── backend/
 │   │   ├── data.py       # Data upload, cleaning, preparation
 │   │   ├── eda.py        # Exploratory analysis & visualization
-│   │   ├── train.py      # Model training
-│   │   ├── evaluate.py   # Model evaluation
+│   │   ├── modeling.py      # Model training & Model evaluation
 │   │   ├── deploy.py     # Deployment & API
 │   └── frontend/
 │       └── app.py        # Streamlit Web UI

@@ -1,36 +1,97 @@
-import os
-from backend.data import load_data, clean_data
-from backend.eda import perform_eda
+import streamlit as st
+import pandas as pd
+from pipeline.data import load_data, clean_data
+from pipeline.eda import perform_eda
+
+# ---------------------------------
+# App Configuration
+# ---------------------------------
+st.set_page_config(
+    page_title='ZEMASAi | Auto-ML',
+    page_icon='🤖',
+    layout='wide',
+    initial_sidebar_state='auto'
+)
+
+# ---------------------------------
+# Sidebar Naivgation
+# ---------------------------------
+st.sidebar.title("App Journey")
+page = st.sidebar.radio("Go To", 
+    ["🏠 Home", "🧹 Data Cleaning", "📊 EDA", "🤖 Modeling", "🚀 Deployment"])
+
+# ---------------------------------
+# Main Page Content
+# ---------------------------------
+st.title("ZEMASAi App")
+st.markdown("**Smoothly, Build your Model**")
+
+# ---------------------------------
+# Store uploaded data across pages
+# ---------------------------------
+if "df" not in st.session_state:
+    st.session_state.df = None
 
 
-def main():
-    dataset_path = "E:\myy projects\Team Project\ZAMESAi-main\ZAMESAi-main\iris.csv"   #### write full path in your pc 
+# ---------------------------------
+# Home Page
+# ---------------------------------
+if page == "🏠 Home":
+    st.write("🏡Welcome to ML Life Cycle Platform")
+    st.markdown("Upload your dataset to begin your machine learning journey.")
+    uploaded_file = st.sidebar.file_uploader("Select a File (CSV, Excel, JSON)", type=['csv', 'json', 'xls', 'xlsx'])
 
-    # 1. Load dataset
-    try:
-        data = load_data(dataset_path)
-        print(f"Data loaded successfully from {dataset_path}")
-    except FileNotFoundError:
-        print(f"Dataset not found: {dataset_path}")
-        return
-    except ValueError as e:
-        print(f"Error loading dataset: {e}")
-        return
+    if uploaded_file is not None:
+        try:
+            df = load_data(uploaded_file)
+            # Save data in Session
+            st.session_state.df = df
+            st.write("#### 🧾Raw Data Preview")
+            st.dataframe(df.head())
+        except ValueError as e:
+            st.error(str(e))
 
-    # 2. Clean dataset
-    cleaned_data = clean_data(data)
-    print("Data cleaned successfully.")
+# ---------------------------------
+# Data Cleaning Page
+# ---------------------------------
+elif page == '🧹 Data Cleaning':
+    st.header("🧽Data Cleaning Stage")
+    if st.session_state.df is not None:
+        df_clean = clean_data(st.session_state.df)
+        # Update the Data
+        st.session_state.df = df_clean
+        st.success("✅ Data cleaned successfully!")
+        st.write("### 🧾 Cleaned Data Preview")
+        st.dataframe(df_clean.head())
+    else:
+        st.warning("⚠️ Please upload data from the Home page first.")
 
-    # 3. Perform EDA 
-    perform_eda(cleaned_data)
-    print("EDA completed. All plots generated.")
+# ---------------------------------
+# Dashboard Page
+# ---------------------------------
+elif page == "📊 EDA":
+    st.header("📈 Exploratory Data Analysis (EDA)")
+    if st.session_state.df is not None:
+        perform_eda(st.session_state.df)
+    else:
+        st.warning("⚠️ Please upload and clean data before performing EDA.")
 
-    # 4. Save cleaned dataset for later use
-    os.makedirs("outputs", exist_ok=True)
-    output_path = os.path.join("outputs", "cleaned_dataset.csv")
-    cleaned_data.to_csv(output_path, index=False)
-    print(f"Cleaned dataset saved to: {output_path}")
+# ---------------------------------
+# Modeling Page
+# ---------------------------------
+elif page == "🤖 Modeling":
+    st.header("🤖 Build and Train Models")
+    if st.session_state.df is not None:
+        st.info("Model training and evaluation will appear here soon.")
+    else:
+        st.warning("⚠️ Please upload and clean data before modeling.")
 
-
-if __name__ == "__main__":
-    main()
+# ---------------------------------
+# Deployment Page
+# ---------------------------------
+elif page == "🚀 Deployment":
+    st.header("🚀 Deployment and Prediction")
+    if st.session_state.df is not None:
+        st.info("Deploy your trained model here.")
+    else:
+        st.warning("⚠️ Please complete the previous steps first.")
