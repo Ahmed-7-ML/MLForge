@@ -87,7 +87,7 @@ At the end, they will get a **ready-to-use trained model + REST API**.
 ## 📂 Project Structure
 
 ```
-Automated-ML-Lifecycle/
+ML Forge/
 │   ├── pipeline/
 │   │   ├── data.py          # Data upload, cleaning, preparation
 │   │   ├── eda.py           # Exploratory analysis & visualization
