@@ -3,7 +3,7 @@
 # App Configuration
 # ---------------------------------
 # st.set_page_config(
-#     page_title='ZEMASAi | Auto-ML',
+#     page_title='ML Forge | Auto-ML',
 #     page_icon='🤖',
 #     layout='wide',
 #     initial_sidebar_state='auto'
@@ -19,7 +19,7 @@
 # ---------------------------------
 # Main Page Content
 # ---------------------------------
-# st.title("ZEMASAi App")
+# st.title("ML Forge App")
 # st.markdown("**Smoothly, Build your Model**")
 
 # ---------------------------------
@@ -115,7 +115,7 @@ from pipeline.eda import perform_eda, handle_chat_query
 from pipeline.modeling import identify_problem
 
 st.set_page_config(
-    page_title='ZEMASAi | Auto-ML',
+    page_title='ML Forge | Auto-ML',
     page_icon='🤖',
     layout='wide',
 )
