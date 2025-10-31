@@ -1,6 +1,6 @@
 # ====================================
 # Data Loading & Cleaning Script :-
-# This File is responsible for Loading data from different formats of Tabular Data (CSV, Excel Sheet Or JSON).
+# Loading data from different formats of Tabular Data (CSV, Excel Sheet Or JSON).
 # Then we apply data cleaning(Handle missing values, Drop Duplicates, Normalize Column Names & Column Values, Fix Data Types).
 # Finally, We introduce a Report for the user about what done on this data and add the ability to download this report.
 # ====================================
@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 from pathlib import Path
-
+from io import BytesIO
 
 # ==============================
 # 1- Load Data
@@ -19,20 +19,34 @@ def load_data(file_path):
     """
     Load tabular data into a pandas DataFrame.
     Supports: CSV, Excel, JSON
+    Accepts:
+        - str / Path -> path on disk
+        - streamlit UploadedFile
+    Returns:
+        - Pandas Data Frame
     """
+    # Determine file_name and bytes
     if isinstance(file_path, (str, Path)):
         file_name = str(file_path).lower()
-    else:  # UploadedFile from Streamlit
+        open_obj = file_path
+    else:  # Streamlit UploadedFile
         file_name = file_path.name.lower()
-
-    if file_name.endswith(".csv"):
-        df = pd.read_csv(file_path)
-    elif file_name.endswith((".xlsx", ".xls")):
-        df = pd.read_excel(file_path)
-    elif file_name.endswith(".json"):
-        df = pd.read_json(file_path)
-    else:
-        raise ValueError("❌ Unsupported File Format. Please upload CSV, Excel, or JSON.")
+        # read content into BytesIO so pandas can consume it multiple times
+        file_bytes = file_path.read()
+        open_obj = BytesIO(file_bytes)
+    try:
+        if file_name.endswith(".csv"):
+            df = pd.read_csv(open_obj)
+        elif file_name.endswith((".xlsx", ".xls")):
+            df = pd.read_excel(open_obj)
+        elif file_name.endswith(".json"):
+            df = pd.read_json(open_obj)
+        else:
+            raise ValueError(
+                "❌ Unsupported File Format. Please upload CSV, Excel, or JSON.")
+    except Exception as e:
+        st.error(f"Error reading file: {e}")
+        raise
 
     st.success(f"✅ Data Loaded Successfully!\nShape = {df.shape}")
     return df
@@ -44,6 +58,7 @@ def load_data(file_path):
 def clean_data(df):
     """
     Run full cleaning pipeline on DataFrame:
+    - Normalize column names/values
     - Handle missing values
     - Remove duplicates
     - Clip outliers
@@ -58,11 +73,11 @@ def clean_data(df):
     with st.expander("Handling Missing Values"):
         df = handle_missing(df, log)
 
-    # Duplicates
+    # Duplicates Removal
     with st.expander("Removing Duplicates"):
         df = remove_duplicates(df, log)
 
-    # Outliers
+    # Outliers Handling
     with st.expander("Clipping Outliers"):
         df = clip_outliers(df, log)
 
@@ -80,9 +95,18 @@ def normalize_cols(df, log=None):
     Normalize Column Names and Values to be in lower case and replace spaces with underscores
     Return a Cleaned Data Frame
     """
-    df.columns = df.columns.str.lower().str.replace(' ', '_')
-    for col in df.select_dtypes(include='object').columns:
-        df[col] = df[col].str.replace(' ', '_').str.lower()
+    df = df.copy()
+    df.columns = df.columns.str.lower().str.replace(' ', '_', regex=False)
+    for col in df.select_dtypes(include=['object']).columns:
+        try:
+            df[col] = df[col].astype(str).str.strip().str.replace(
+                ' ', '_', regex=False).str.lower()
+            # restore nan where original was nan
+            mask_nan = df[col].isin(['nan', 'none', 'none-type'])
+            df.loc[mask_nan, col] = np.nan
+        except Exception:
+            # fallback: skip column if can't be processed
+            continue
     return df
 
 # ==============================
@@ -92,7 +116,7 @@ def handle_missing(df, log=None):
     """
     Fill missing values:
     - Numeric: mean if not skewed, else median
-    - Categorical: mode
+    - Categorical: mode (fallback to empty string if no mode)
     """
     df2 = df.copy()
     num_cols = df2.select_dtypes(include=np.number).columns
@@ -108,6 +132,9 @@ def handle_missing(df, log=None):
         # Numeric Columns
         for col in num_cols:
             if df2[col].isnull().any():
+                # if column all null skip
+                if df2[col].dropna().empty:
+                    continue
                 skewness = df2[col].skew()
                 method = "median" if abs(skewness) > 1 else "mean"
                 st.write(f"➡️ Filling '{col}' with **{method}**")
@@ -119,8 +146,14 @@ def handle_missing(df, log=None):
         # Categorical Columns
         for col in cat_cols:
             if df2[col].isnull().any():
-                st.write(f"➡️ Filling '{col}' with **mode**")
-                df2[col] = df2[col].fillna(df2[col].mode()[0])
+                st.write(
+                    f"➡️ Filling '{col}' with **mode** (fallback empty string)")
+                try:
+                    mode_val = df2[col].mode(dropna=True)
+                    fill = mode_val[0] if not mode_val.empty else ""
+                except Exception:
+                    fill = ""
+                df2[col] = df2[col].fillna(fill)
 
     missing_count_after = int(df2.isnull().sum().sum())
     st.write(f"🔍 Total Missing Values after cleaning: {missing_count_after}")
@@ -161,14 +194,22 @@ def clip_outliers(df, log=None):
     outlier_summary = {}
 
     for col in num_cols:
-        Q1 = df2[col].quantile(0.25)
-        Q3 = df2[col].quantile(0.75)
+        col_non_na = df2[col].dropna()
+        if col_non_na.empty:
+            outlier_summary[col] = 0
+            st.write(
+                f"⚪ Column '{col}' empty or all NaN — skipped outlier clipping.")
+            continue
+
+        Q1 = col_non_na.quantile(0.25)
+        Q3 = col_non_na.quantile(0.75)
         IQR = Q3 - Q1
         lower = Q1 - 1.5 * IQR
         upper = Q3 + 1.5 * IQR
 
-        outliers = df2[(df2[col] < lower) | (df2[col] > upper)]
-        count_outliers = len(outliers)
+        outliers_mask = (df2[col] < lower) | (df2[col] > upper)
+        outliers_mask = outliers_mask.fillna(False)
+        count_outliers = int(outliers_mask.sum())
 
         if count_outliers > 0:
             df2[col] = df2[col].clip(lower, upper)
@@ -176,7 +217,7 @@ def clip_outliers(df, log=None):
         else:
             st.write(f"✅ No outliers found in '{col}'")
 
-        outlier_summary[col] = int(count_outliers)
+        outlier_summary[col] = count_outliers
 
     if log is not None:
         log["outliers"] = outlier_summary

@@ -3,3 +3,7 @@ __pycache__
 *.pkl
 venv/
 visuals/
+.env
+.gitignore
+tests/
+UI Design.png
