@@ -1,4 +1,4 @@
-# 🏭 ML Lifecycle Factory Platform
+# 🏭 ML Lifecycle Factory Platform (ML Forge)
 
 An integrated web platform to automate the **Machine Learning Lifecycle** as a factory-like pipeline.  
 This platform streamlines the full Machine Learning Life Cycle (MLLC) from **data ingestion → cleaning → analysis → training → evaluation → deployment as API**.
@@ -76,7 +76,6 @@ At the end, they will get a **ready-to-use trained model + REST API**.
 
 - **Ahmed Akram Amer** (Team Leader)
 - **Eyad Sherif Rashad**
-- **Ziad Moataz Hawana**
 - **Mohamed Adel Tawfik**
 - **Ahmed Mohamed Abdel-Mordi**
 - **Salim Mohamed El-Katatny**
@@ -89,15 +88,12 @@ At the end, they will get a **ready-to-use trained model + REST API**.
 
 ```
 Automated-ML-Lifecycle/
-│── src/
-│   ├── backend/
-│   │   ├── data.py       # Data upload, cleaning, preparation
-│   │   ├── eda.py        # Exploratory analysis & visualization
+│   ├── pipeline/
+│   │   ├── data.py          # Data upload, cleaning, preparation
+│   │   ├── eda.py           # Exploratory analysis & visualization
 │   │   ├── modeling.py      # Model training & Model evaluation
-│   │   ├── deploy.py     # Deployment & API
-│   └── frontend/
-│       └── app.py        # Streamlit Web UI
-│
+│   │   ├── deploy.py        # Deployment & API
+│   └──  app.py              # Streamlit Web UI
 │── requirements.txt
 │── README.md
 ```
@@ -109,8 +105,7 @@ Automated-ML-Lifecycle/
 1. **Clone the Repository**
 
    ```bash
-   git clone https://github.com/Ahmed-7-ML/Automated-Machine-Learning-Life-Cycle.git
-   cd Automated-Machine-Learning-Life-Cycle
+   git clone https://github.com/Ahmed-7-ML/MLForge.git
    ```
 
 2. **Install Dependencies**
@@ -121,7 +116,7 @@ Automated-ML-Lifecycle/
 
 3. **Run the Application**
    ```bash
-   streamlit run src/frontend/app.py
+   streamlit run app.py
    ```
 
 ---
