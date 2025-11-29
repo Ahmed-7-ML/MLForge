@@ -1,255 +1,318 @@
-# ====================================
+# ---------------------------------
 # Auto-ML Python Script
 # Building Machine Learning Models based on a specific problem (Classification, Regression, Clustering)
 # Apply the suitable algorithms for the problem
 # Train them and Evaluate based in the specific metrics
 # Select the best model for future deploymnet
-# ====================================
-
-import numpy as np 
+# ---------------------------------
+import numpy as np
 import pandas as pd
-
-# For integrate this script with the app
 import streamlit as st
 
-# Helper Functions
-from pipeline.data import clean_data
-
-# Modeling Libraries (Regression, Classification, Clustering)
-from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge, Lasso
+# Modeling Libraries
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.svm import SVC, SVR
-from sklearn.cluster import KMeans, DBSCAN
-
-# Preprocessing Libraries
-from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.neural_network import MLPRegressor, MLPClassifier
+from sklearn.model_selection import train_test_split, RandomizedSearchCV, cross_val_score
 from sklearn.preprocessing import LabelEncoder
-# Metrics Library
-from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, classification_report
-from sklearn.metrics import mean_absolute_error as mae, mean_absolute_percentage_error as mape, mean_squared_error as mse, r2_score as r2
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import (
+    accuracy_score, f1_score, confusion_matrix, classification_report,
+    mean_absolute_error as mae, mean_absolute_percentage_error as mape,
+    mean_squared_error as mse, r2_score as r2, silhouette_score
+)
+from sklearn.cluster import KMeans, DBSCAN
+from xgboost import XGBRegressor, XGBClassifier
+# Imbalanced Data Handling
+from imblearn.over_sampling import SMOTE
+# Plotly for Elbow Method
+import plotly.graph_objects as go
 
-def prepare_df(df, target):
-    """
-    Splits dataset into Features (X) and Target (y) and then into Training & Testing Sets
-    Handles categorical target by encoding it.
-    """
+def init_state():
+    defaults = {
+        "best_models_trained": None,
+        "target_encoder_saved": None,
+        "feature_names_saved": None,
+        "problem_type": None,
+        "modeling_running": False,
+        "clustering_algorithm": "KMeans",
+        "k_value": 3
+    }
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
+
+init_state()
+
+# ==================== Data Preparation for Modeling ====================
+def prepare_df(df, target=None):
     df = df.copy()
     if target not in df.columns:
         raise ValueError("Target column not in DataFrame")
-    
-    X = df.drop(columns=[target])
-    y = df[target]
 
-    # Encode target if categorical (strings/object)
+    X = df.drop(columns=[target])
+    if target != None:
+        y = df[target]
+
+    # Save feature names before encoding
+    feature_names = X.columns.tolist()
+
+    # Encode target if categorical
     target_encoder = None
-    if y.dtype == object or y.dtype.name == 'category':
+    if y.dtype == 'object' or y.dtype.name == 'category':
         target_encoder = LabelEncoder()
         y = target_encoder.fit_transform(y.astype(str))
 
-    # One-hot encode X for object columns
+    # One-hot encode categorical features
     X = pd.get_dummies(X, drop_first=True)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-    return X_train, X_test, y_train, y_test, target_encoder
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.3, random_state=42, stratify=y if target_encoder is not None else None
+    )
 
-def identify_problem(df, target, problem):
-    """
-    Identifies the problem type and calls the appropriate model building function.
-    """
+    # Save to session state for deployment
+    st.session_state.feature_names_saved = X.columns.tolist()
+    st.session_state.target_encoder_saved = target_encoder
 
-    X_train, X_test, y_train, y_test, target_encoder = prepare_df(df, target)
-    st.write(f"### ⚙️ Preparing Data for {problem} Model Training")
-    st.write(f"Training set shape: {X_train.shape}")
-    st.write(f"Testing set shape: {X_test.shape}")
+    return X_train, X_test, y_train, y_test, target_encoder, feature_names
+
+# ==================== Define the Problem and Target ====================
+def identify_problem(df, problem, target=None):
+    st.session_state.problem_type = problem.lower()
+
+    if problem.lower() == 'clustering':
+        X = pd.get_dummies(df, drop_first=True)
+        X_train, X_test = train_test_split(X, test_size=0.3, random_state=42)
+        build_clustering_models(X_train, X_test)
+        return
+
+    X_train, X_test, y_train, y_test, target_encoder, feature_names = prepare_df(df, target)
+
+    st.write(f"### ⚙️ Preparing Data for **{problem}** Model Training")
+    st.write(f"Training set: `{X_train.shape}` | Test set: `{X_test.shape}`")
 
     if problem.lower() == 'regression':
         best_models = build_regression_models(X_train, y_train)
         evaluate_regression_models(best_models, X_test, y_test)
 
     elif problem.lower() == 'classification':
+        # Check for class imbalance
+        unique, counts = np.unique(y_train, return_counts=True)
+        imbalance_ratio = counts.max() / counts.min() if len(counts) > 1 else 1
+        if len(unique) > 1 and imbalance_ratio > 2.0:
+            st.warning(f"⚠️ Detected class imbalance (ratio: {imbalance_ratio:.1f}). Applying SMOTE...")
+            smote = SMOTE(random_state=42)
+            X_train, y_train = smote.fit_resample(X_train, y_train)
+            st.success("SMOTE applied successfully!")
+
         best_models = build_classification_models(X_train, y_train)
         evaluate_classification_models(best_models, X_test, y_test)
 
-    elif problem.lower() == 'clustering':
-        build_clustering_models(X_train, X_test)
+    # Save best models to session state
+    st.session_state.best_models_trained = best_models
 
+# ==================== REGRESSION ====================
 def build_regression_models(X_train, y_train):
-    """
-    Try Different ML Models for Regression Only
-    Apply Grid Search to find the Best Estimators
-    Args:
-        X_train: Training Data (Features Only)
-        y_train: Training Labels
-    Returns:
-        The Best Models of Regression
-    """
-
     best_models = {}
 
     models = {
         'LinearRegression': LinearRegression(),
-        'SVR':SVR(),
+        'Ridge': LinearRegression(),  # We'll use Ridge via params later if needed
+        'RandomForestRegressor': RandomForestRegressor(random_state=42),
+        'XGBRegressor': XGBRegressor(random_state=42),
+        'MLPRegressor': MLPRegressor(max_iter=500, random_state=42),
         'KNeighborsRegressor': KNeighborsRegressor(),
-        'DecisionTreeRegressor': DecisionTreeRegressor(),
-        'RandomForestRegressor': RandomForestRegressor()
+        'SVR': SVR(),
+        'DecisionTreeRegressor': DecisionTreeRegressor(random_state=42)
     }
+
     params = {
-        'RandomForestRegressor': {
-            'n_estimators': [50, 100, 150, 200],
-            'max_depth': [10, 15, 20],
-            'min_samples_split': [3, 5, 7, 9]
-        },
-        'KNeighborsRegressor': {
-            'n_neighbors': [3, 5, 7, 9, 11],
-            'weights': ['uniform', 'distance'],
-            'p':[1, 2]
-        },
-        'DecisionTreeRegressor':
-        {
-            'max_depth': [10, 15, 20],
-            'min_samples_split': [3, 5, 7, 9]
-        },
-        'SVR': {
-            'kernel': ['linear', 'poly', 'rbf', 'sigmoid'],
-            'degree': [2, 3, 4],
-            'gamma': ['scale', 'auto'],
-            'C': [0.1, 1, 10, 100]
-        }
+        'RandomForestRegressor': {'n_estimators': [100, 200, 300], 'max_depth': [10, 20, None]},
+        'XGBRegressor': {'n_estimators': [100, 200], 'max_depth': [6, 10], 'learning_rate': [0.01, 0.1]},
+        'MLPRegressor': {'hidden_layer_sizes': [(50,), (100,), (50, 50)], 'alpha': [0.0001, 0.001]},
+        'KNeighborsRegressor': {'n_neighbors': [3, 5, 7, 11], 'weights': ['uniform', 'distance']},
+        'SVR': {'C': [0.1, 1, 10], 'kernel': ['rbf', 'linear']},
+        'DecisionTreeRegressor': {'max_depth': [10, 20, None], 'min_samples_split': [2, 5]}
     }
-    with st.spinner("⚙️ Training Regression Models... Please wait"):
+
+    with st.spinner("Training Regression Models..."):
         for name, model in models.items():
-            st.info(f"Training **{name}**.......")
-            if name == 'LinearRegression':
-                model.fit(X_train, y_train)
-                best_models[name] = model
-                # st.success(f"Trained **{name}**")
+            if model is None:
                 continue
+            st.info(f"Training **{name}**")
             try:
-                search = RandomizedSearchCV(model, param_distributions=params.get(name, {}), cv=5, n_jobs=-1, n_iter=10, verbose=1, scoring='r2', random_state=42)
-                search.fit(X_train, y_train)
-                best_models[name] = search.best_estimator_
-                st.write(f"✅ **{name}** Best Parameters: `{search.best_params_}`")
-                st.write(f"⭐ **{name}** Best R2 Score: `{round(search.best_score_, 3)}`")
-                st.markdown('---')
+                if name in ['LinearRegression']:
+                    model.fit(X_train, y_train)
+                    best_models[name] = model
+                else:
+                    search = RandomizedSearchCV(
+                        model, params.get(name, {}), n_iter=10, cv=5,
+                        scoring='r2', n_jobs=-1, random_state=42
+                    )
+                    search.fit(X_train, y_train)
+                    best_models[name] = search.best_estimator_
+                    st.write(f"Best R² (CV): {search.best_score_:.3f}")
             except Exception as e:
-                st.error(f"Failed to Train {name}: {e}")
+                st.error(f"{name} failed: {e}")
 
+    st.session_state.best_models_trained = best_models
     return best_models
 
+# ==================== CLASSIFICATION ====================
 def build_classification_models(X_train, y_train):
-    """
-    Try Different ML Models for Classification Only
-    Apply Grid Search to find the Best Estimators
-    Args:
-        X_train: Training Data (Features Only)
-        y_train: Training Labels
-    Returns:
-        The Best Models of Classification
-    """
-
     best_models = {}
+
     models = {
-        'LogisticRegression': LogisticRegression(),
-        'SVC':SVC(),
+        'LogisticRegression': LogisticRegression(max_iter=1000),
+        'RandomForestClassifier': RandomForestClassifier(random_state=42),
+        'XGBClassifier': XGBClassifier(random_state=42),
+        'MLPClassifier': MLPClassifier(max_iter=500, random_state=42),
         'KNeighborsClassifier': KNeighborsClassifier(),
-        'DecisionTreeClassifier': DecisionTreeClassifier(),
-        'RandomForestClassifier': RandomForestClassifier()
+        'SVC': SVC(probability=True),
+        'DecisionTreeClassifier': DecisionTreeClassifier(random_state=42)
     }
 
     params = {
-        'LogisticRegression': {
-            'C': [0.001, 0.01, 0.1, 1, 10, 100],
-            'penalty': ['l1', 'l2'],
-            'solver': ['liblinear', 'saga']
-        },
-        'RandomForestClassifier': {
-            'n_estimators': [50, 100, 150, 200],
-            'max_depth': [10, 15, 20],
-            'min_samples_split': [3, 5, 7, 9]
-        },
-        'KNeighborsClassifier': {
-            'n_neighbors': [3, 5, 7, 9, 11],
-            'weights': ['uniform', 'distance'],
-            'p':[1, 2]
-        },
-        'DecisionTreeClassifier':
-        {
-            'max_depth': [10, 15, 20],
-            'min_samples_split': [3, 5, 7, 9]
-        },
-        'SVC': {
-            'kernel': ['linear', 'poly', 'rbf', 'sigmoid'],
-            'degree': [2, 3, 4],
-            'gamma': ['scale', 'auto'],
-            'C': [0.1, 1, 10, 100]
-        }
+        'RandomForestClassifier': {'n_estimators': [100, 200, 300], 'max_depth': [10, 20, None]},
+        'XGBClassifier': {'n_estimators': [100, 200], 'max_depth': [6, 10], 'learning_rate': [0.01, 0.1]},
+        'MLPClassifier': {'hidden_layer_sizes': [(50,), (100,), (100, 50)], 'alpha': [0.0001, 0.001]},
+        'KNeighborsClassifier': {'n_neighbors': [3, 5, 7, 11], 'weights': ['uniform', 'distance']},
+        'SVC': {'C': [0.1, 1, 10], 'kernel': ['rbf', 'linear']},
+        'DecisionTreeClassifier': {'max_depth': [10, 20, None], 'min_samples_split': [2, 5]}
     }
-    with st.spinner("⚙️ Training Classification Models... Please wait"):
+
+    with st.spinner("Training Classification Models..."):
         for name, model in models.items():
-            st.info(f"Training {name}.......")
+            if model is None:
+                continue
+            st.info(f"Training **{name}**")
             try:
-                search = RandomizedSearchCV(model, param_distributions=params[name], cv=5, n_jobs=-1, verbose=1, n_iter=10, scoring='accuracy', random_state=42)
+                search = RandomizedSearchCV(
+                    model, params.get(name, {}), n_iter=10, cv=5,
+                    scoring='f1_weighted', n_jobs=-1, random_state=42
+                )
                 search.fit(X_train, y_train)
                 best_models[name] = search.best_estimator_
-                st.write(f"Best Parameters\n{search.best_params_}")
-                st.write(f"Best Accuracy = {round(search.best_score_, 3)}")
-                st.markdown('---')
+                st.write(f"Best F1 (CV): {search.best_score_:.3f}")
             except Exception as e:
-                st.error(f"Failed to Train {name}: {e}")
+                st.error(f"{name} failed: {e}")
 
+    st.session_state.best_models_trained = best_models
     return best_models
 
-def build_clustering_models(X_train, X_test):
-    st.info("Running simple clustering (KMeans) over features (ignores target).")
-    X = pd.concat([X_train, X_test], axis=0)
-    try:
-        n_clusters = st.number_input("Number of clusters (KMeans)", min_value=2, max_value=20, value=3)
-        km = KMeans(n_clusters=n_clusters, random_state=42)
-        labels = km.fit_predict(X)
-        score = silhouette_score(X, labels) if len(np.unique(labels)) > 1 else None
-        st.write(f"KMeans Silhouette Score: {round(score, 3) if score is not None else 'N/A'}")
-        st.write("Cluster centers shape:", km.cluster_centers_.shape)
-    except Exception as e:
-        st.error(f"Clustering error: {e}")
-
+# ==================== EVALUATION WITH CROSS-VAL ====================
 def evaluate_regression_models(best_models, X_test, y_test):
-    """
-    Evaluates the trained regression models on the test set and displays metrics.
-    """
-    st.header("📈 Models Evaluation")
-    with st.spinner("⚙️ Evaluating Regression Models... Please wait"):
-        for name, model in best_models.items():
-            st.subheader(f"Evaluating **{name}**....")
+    st.header("Regression Models Evaluation")
+    results = []
+
+    for name, model in best_models.items():
+        with st.expander(f"**{name}**"):
             y_pred = model.predict(X_test)
 
-            with st.expander("Show Metrics"):
-                st.write("#### 📊 Metrics")
-                st.write(f"**Mean Absolute Error (MAE):** `{round(mae(y_test, y_pred), 3)}`")
-                st.write(f"**Mean Absolute Percentage Error (MAPE):** `{round(mape(y_test, y_pred), 3)}`")
-                st.write(f"**Mean Squared Error (MSE):** `{round(mse(y_test, y_pred), 3)}`")
-                st.write(f"**Root Mean Squared Error (RMSE):** `{round(np.sqrt(mse(y_test, y_pred)), 3)}`")
-                st.write(f"**R² Score:** `{round(r2(y_test, y_pred), 3)}`")
-            st.markdown('---')
-    st.success("🎉 All Regression models trained successfully!")
+            # Cross-validation score
+            cv_scores = cross_val_score(model, X_test, y_test, cv=5, scoring='r2')
+            st.write(f"**Cross-Val R²:** `{cv_scores.mean():.3f} ± {cv_scores.std():.3f}`")
+
+            r2_test = r2(y_test, y_pred)
+            results.append({'Model': name, 'R² Test': r2_test, 'CV R²': cv_scores.mean()})
+
+            st.write(f"**R² (Test):** `{r2_test:.3f}`")
+            st.write(f"**MAE:** `{mae(y_test, y_pred):.3f}`")
+            st.write(f"**MAPE:** `{mape(y_test, y_pred):.3f}`")
+            st.write(f"**MSE:** `{mse(y_test, y_pred):.3f}`")
+            st.write(f"**RMSE:** `{np.sqrt(mse(y_test, y_pred)):.3f}`")
+
+    # Summary table
+    results_df = pd.DataFrame(results).sort_values(by='R² Test', ascending=False)
+    st.write("### Best Model Summary")
+    st.dataframe(results_df, use_container_width=True)
 
 def evaluate_classification_models(best_models, X_test, y_test):
-    """
-    Evaluates the trained classification models on the test set and displays metrics.
-    """
-    st.header("📈 Model Evaluation")
-    with st.spinner("⚙️ Evaluating Classification Models... Please wait"):
-        for name, model in best_models.items():
-            st.subheader(f"Evaluating **{name}**....")
+    st.header("Classification Models Evaluation")
+    results = []
+
+    for name, model in best_models.items():
+        with st.expander(f"**{name}**"):
             y_pred = model.predict(X_test)
-            with st.expander("Show Metrics"):
-                st.write("#### 📊 Metrics")
-                st.write(f"**Accuracy:** `{round(accuracy_score(y_test, y_pred), 3)}`")
-                st.write(f"**Classification Report:**")
-                st.text(classification_report(y_test, y_pred))
-                st.write(f"**Confusion Matrix:**")
-                st.dataframe(pd.DataFrame(confusion_matrix(y_test, y_pred)), use_container_width=True)
-            st.markdown('---')
-    st.success("🎉 All Classification models trained successfully!")
+
+            # Cross-validation
+            cv_scores = cross_val_score(model, X_test, y_test, cv=5, scoring='f1_weighted')
+            st.write(f"**Cross-Val F1:** `{cv_scores.mean():.3f} ± {cv_scores.std():.3f}`")
+
+            acc = accuracy_score(y_test, y_pred)
+            f1 = f1_score(y_test, y_pred, average='weighted')
+            results.append({'Model': name, 'Accuracy': acc, 'F1': f1, 'CV F1': cv_scores.mean()})
+
+            st.write(f"**Accuracy:** `{acc:.3f}` | **F1-Score:** `{f1:.3f}`")
+            st.text(classification_report(y_test, y_pred))
+            st.write("**Confusion Matrix:**")
+            st.dataframe(pd.DataFrame(confusion_matrix(y_test, y_pred)), use_container_width=True)
+
+    results_df = pd.DataFrame(results).sort_values(by='F1', ascending=False)
+    st.write("### Best Model Summary")
+    st.dataframe(results_df, use_container_width=True)
+
+# ==================== CLUSTERING WITH ELBOW METHOD ====================
+def build_clustering_models(X_train, X_test):
+    st.subheader("Unsupervised Clustering")
+    algorithm = st.selectbox("Select clustering algorithm", ["KMeans", "DBSCAN"], help='Clustering Algorithm')
+
+    X = pd.concat([X_train, X_test])
+    best_model = None
+    best_score = -1
+
+    if algorithm == 'kmeans':
+        st.write("### 📌 Using KMeans Clustering")
+        # Elbow Method
+        inertias = []
+        K = range(2, 11)
+        for k in K:
+            kmeans = KMeans(n_clusters=k, random_state=42)
+            kmeans.fit(X)
+            inertias.append(kmeans.inertia_)
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=list(K), y=inertias, mode='lines+markers'))
+        fig.update_layout(title="Elbow Method for Optimal K", xaxis_title="Number of Clusters", yaxis_title="Inertia")
+        st.plotly_chart(fig, use_container_width=True)
+
+        # User selects K
+        n_clusters = st.slider("Select number of clusters", 2, 10, 3)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        labels = kmeans.fit_predict(X)
+
+        score = silhouette_score(X, labels) if n_clusters > 1 else None
+        st.write(f"**Silhouette Score:** `{score:.3f}`" if score else "N/A")
+        st.write("Cluster centers shape:", kmeans.cluster_centers_.shape)
+
+        best_model = kmeans
+        best_score = score
+    
+    elif algorithm == 'DBSCAN':
+        st.write("### 📌 Using DBSCAN")
+
+        eps = st.slider("eps (neighborhood radius)", 0.1, 5.0, 0.5)
+        min_samples = st.slider("min_samples", 3, 20, 5)
+
+        db = DBSCAN(eps=eps, min_samples=min_samples)
+        labels = db.fit_predict(X)
+
+        # If all points become -1 -> invalid
+        if len(set(labels)) <= 1:
+            st.error("⚠️ DBSCAN failed to form clusters — adjust parameters.")
+            return None
+
+        score = silhouette_score(X, labels)
+        st.success(f"**Silhouette Score (DBSCAN):** `{score:.4f}`")
+        st.write(f"Clusters found: {len(set(labels))}")
+
+        best_model = db
+        best_score = score
+
+    # Save the model inside session
+    st.session_state["best_clustering_model"] = best_model
+    st.session_state["best_clustering_score"] = best_score
+
+    return best_model

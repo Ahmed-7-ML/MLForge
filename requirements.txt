@@ -6,3 +6,7 @@ matplotlib
 seaborn
 openpyxl
 reportlab
+pycaret
+streamlit-pandas-profiling
+fastapi
+uvicorn
