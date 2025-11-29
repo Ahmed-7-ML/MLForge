@@ -8,7 +8,7 @@ import numpy as np
 import plotly.express as px
 import matplotlib.pyplot as plt
 import streamlit as st
-from ydata_profiling import ProfileReport
+# from ydata_profiling import ProfileReport
 import streamlit.components.v1 as components
 import re
 import json
@@ -179,11 +179,8 @@ def perform_eda(df):
         if st.session_state.df is None:
             st.warning("Please upload data first.")
             st.stop()
-
         df = st.session_state.df
-
-        tabs = st.tabs(["Overview", "Numeric Features",
-                    "Categorical Features", "Correlations", "Missing & Duplicates"])
+        tabs = st.tabs(["Overview", "Numeric Features","Categorical Features", "Correlations", "Missing & Duplicates"])
 
         with tabs[0]:  # Overview
             st.subheader("Dataset Overview")
@@ -209,18 +206,15 @@ def perform_eda(df):
                 st.info("No numeric columns found.")
             else:
                 st.subheader("Numeric Features Distribution")
-                selected_num = st.selectbox(
-                    "Select column", numeric_cols, key="num_col")
+                selected_num = st.selectbox("Select column", numeric_cols, key="num_col")
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    fig = px.histogram(df, x=selected_num, nbins=30,
-                                    color_discrete_sequence=['#636EFA'])
+                    fig = px.histogram(df, x=selected_num, nbins=30, color_discrete_sequence=['#636EFA'])
                     fig.update_layout(title=f"Distribution of {selected_num}")
                     st.plotly_chart(fig, use_container_width=True)
                 with col2:
-                    fig = px.box(df, y=selected_num,
-                                color_discrete_sequence=['#EF553B'])
+                    fig = px.box(df, y=selected_num,color_discrete_sequence=['#EF553B'])
                     fig.update_layout(title=f"Box Plot - {selected_num}")
                     st.plotly_chart(fig, use_container_width=True)
 
@@ -233,19 +227,16 @@ def perform_eda(df):
                 st.info("No categorical columns found.")
             else:
                 st.subheader("Categorical Features")
-                selected_cat = st.selectbox(
-                    "Select column", cat_cols, key="cat_col")
+                selected_cat = st.selectbox("Select column", cat_cols, key="cat_col")
 
                 col1, col2 = st.columns(2)
                 with col1:
                     counts = df[selected_cat].value_counts().head(10)
-                    fig = px.bar(x=counts.index, y=counts.values, labels={
-                                'x': selected_cat, 'y': 'Count'})
+                    fig = px.bar(x=counts.index, y=counts.values, labels={'x': selected_cat, 'y': 'Count'})
                     fig.update_layout(title=f"Top 10 Values - {selected_cat}")
                     st.plotly_chart(fig, use_container_width=True)
                 with col2:
-                    fig = px.pie(values=counts.values, names=counts.index,
-                                title=f"Distribution - {selected_cat}")
+                    fig = px.pie(values=counts.values, names=counts.index,title=f"Distribution - {selected_cat}")
                     st.plotly_chart(fig, use_container_width=True)
 
         with tabs[3]:  # Correlations
@@ -263,24 +254,23 @@ def perform_eda(df):
                 corr_pairs = corr.unstack().sort_values(ascending=False)
                 corr_pairs = corr_pairs[corr_pairs != 1.0].drop_duplicates()
                 st.write("### Strongest Correlations")
-                st.dataframe(corr_pairs.head(10).to_frame(
-                    name="Correlation"), use_container_width=True)
+                st.dataframe(corr_pairs.head(10).to_frame(name="Correlation"), use_container_width=True)
 
         with tabs[4]:  # Missing & Duplicates
-        st.subheader("Missing Values")
-        missing = df.isnull().sum()
-        missing = missing[missing > 0].sort_values(ascending=False)
-        if missing.empty:
-            st.success("No missing values!")
-        else:
-            fig = px.bar(x=missing.index, y=missing.values, labels={'x': 'Column', 'y': 'Missing Count'})
-            fig.update_layout(title="Missing Values per Column")
-            st.plotly_chart(fig, use_container_width=True)
+            st.subheader("Missing Values")
+            missing = df.isnull().sum()
+            missing = missing[missing > 0].sort_values(ascending=False)
+            if missing.empty:
+                st.success("No missing values!")
+            else:
+                fig = px.bar(x=missing.index, y=missing.values, labels={'x': 'Column', 'y': 'Missing Count'})
+                fig.update_layout(title="Missing Values per Column")
+                st.plotly_chart(fig, use_container_width=True)
 
-        if df.duplicated().sum() > 0:
-            st.error(f"{df.duplicated().sum():,} duplicate rows found!")
-            if st.button("Show Duplicates"):
-                st.dataframe(df[df.duplicated(keep=False)], use_container_width=True)
+            if df.duplicated().sum() > 0:
+                st.error(f"{df.duplicated().sum():,} duplicate rows found!")
+                if st.button("Show Duplicates"):
+                    st.dataframe(df[df.duplicated(keep=False)], use_container_width=True)
 
     # ===============================================
     # TAB 2 — AI Dashboard
