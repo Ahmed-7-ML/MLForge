@@ -109,8 +109,7 @@ with tab2:
 # ---------------------------------
 with tab3:
     st.header("📊 AI-Powered Exploratory Data Analysis Dashboard")
-    st.markdown(
-        "Explore your data with statistics, visualizations, and AI suggestions.")
+    st.markdown("Explore your data with statistics, visualizations, and AI suggestions.")
     if st.session_state.df is not None:
         perform_eda(st.session_state.cleaned_df)
     else:

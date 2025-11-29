@@ -161,20 +161,126 @@ def perform_eda(df):
     # ===============================================
     # TAB 1 — Data Profile
     # ===============================================
+    # with tab1:
+    #     st.write("### 📊 Full Pandas Profiling Report")
+    #     if st.button("Generate Data Profile"):
+    #         profile = ProfileReport(df, title="EDA Report", explorative=True)
+    #         st.session_state["profile_html"] = profile.to_html()
+    #         # Export to file for download
+    #         profile.to_file("eda_report.html")
+    #     if "profile_html" in st.session_state:
+    #         components.html(st.session_state["profile_html"], height=1000, scrolling=True)
+    #         # Download buttons
+    #         with open("eda_report.html", "rb") as f:
+    #             st.download_button("Download HTML Report", f, file_name="eda_report.html")
+
     with tab1:
-        st.write("### 📊 Full Pandas Profiling Report")
-        if st.button("Generate Data Profile"):
-            profile = ProfileReport(df, title="EDA Report", explorative=True)
-            st.session_state["profile_html"] = profile.to_html()
-            # Export to file for download
-            profile.to_file("eda_report.html")
-        if "profile_html" in st.session_state:
-            components.html(
-                st.session_state["profile_html"], height=1000, scrolling=True)
-            # Download buttons
-            with open("eda_report.html", "rb") as f:
-                st.download_button("Download HTML Report", f,
-                                   file_name="eda_report.html")
+        st.header("Exploratory Data Analysis")
+        if st.session_state.df is None:
+            st.warning("Please upload data first.")
+            st.stop()
+
+        df = st.session_state.df
+
+        tabs = st.tabs(["Overview", "Numeric Features",
+                    "Categorical Features", "Correlations", "Missing & Duplicates"])
+
+        with tabs[0]:  # Overview
+            st.subheader("Dataset Overview")
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Rows", f"{df.shape[0]:,}")
+            with col2:
+                st.metric("Columns", f"{df.shape[1]:,}")
+            with col3:
+                st.metric("Missing Values", f"{df.isnull().sum().sum():,}")
+            with col4:
+                st.metric("Duplicates", f"{df.duplicated().sum():,}")
+
+            st.write("### First 10 Rows")
+            st.dataframe(df.head(10), use_container_width=True)
+
+            st.write("### Data Types")
+            st.dataframe(pd.DataFrame(df.dtypes).T, use_container_width=True)
+
+        with tabs[1]:  # Numeric Features
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            if len(numeric_cols) == 0:
+                st.info("No numeric columns found.")
+            else:
+                st.subheader("Numeric Features Distribution")
+                selected_num = st.selectbox(
+                    "Select column", numeric_cols, key="num_col")
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    fig = px.histogram(df, x=selected_num, nbins=30,
+                                    color_discrete_sequence=['#636EFA'])
+                    fig.update_layout(title=f"Distribution of {selected_num}")
+                    st.plotly_chart(fig, use_container_width=True)
+                with col2:
+                    fig = px.box(df, y=selected_num,
+                                color_discrete_sequence=['#EF553B'])
+                    fig.update_layout(title=f"Box Plot - {selected_num}")
+                    st.plotly_chart(fig, use_container_width=True)
+
+                st.write("### Statistical Summary")
+                st.dataframe(df[selected_num].describe(), use_container_width=True)
+
+        with tabs[2]:  # Categorical Features
+            cat_cols = df.select_dtypes(include=['object', 'category']).columns
+            if len(cat_cols) == 0:
+                st.info("No categorical columns found.")
+            else:
+                st.subheader("Categorical Features")
+                selected_cat = st.selectbox(
+                    "Select column", cat_cols, key="cat_col")
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    counts = df[selected_cat].value_counts().head(10)
+                    fig = px.bar(x=counts.index, y=counts.values, labels={
+                                'x': selected_cat, 'y': 'Count'})
+                    fig.update_layout(title=f"Top 10 Values - {selected_cat}")
+                    st.plotly_chart(fig, use_container_width=True)
+                with col2:
+                    fig = px.pie(values=counts.values, names=counts.index,
+                                title=f"Distribution - {selected_cat}")
+                    st.plotly_chart(fig, use_container_width=True)
+
+        with tabs[3]:  # Correlations
+            num_df = df.select_dtypes(include=[np.number])
+            if num_df.shape[1] < 2:
+                st.info("Not enough numeric columns for correlation.")
+            else:
+                st.subheader("Correlation Matrix")
+                corr = num_df.corr()
+                fig = px.imshow(corr, text_auto=True, aspect="auto",color_continuous_scale="RdBu_r")
+                fig.update_layout(title="Correlation Heatmap")
+                st.plotly_chart(fig, use_container_width=True)
+
+                # Top correlated pairs
+                corr_pairs = corr.unstack().sort_values(ascending=False)
+                corr_pairs = corr_pairs[corr_pairs != 1.0].drop_duplicates()
+                st.write("### Strongest Correlations")
+                st.dataframe(corr_pairs.head(10).to_frame(
+                    name="Correlation"), use_container_width=True)
+
+        with tabs[4]:  # Missing & Duplicates
+        st.subheader("Missing Values")
+        missing = df.isnull().sum()
+        missing = missing[missing > 0].sort_values(ascending=False)
+        if missing.empty:
+            st.success("No missing values!")
+        else:
+            fig = px.bar(x=missing.index, y=missing.values, labels={'x': 'Column', 'y': 'Missing Count'})
+            fig.update_layout(title="Missing Values per Column")
+            st.plotly_chart(fig, use_container_width=True)
+
+        if df.duplicated().sum() > 0:
+            st.error(f"{df.duplicated().sum():,} duplicate rows found!")
+            if st.button("Show Duplicates"):
+                st.dataframe(df[df.duplicated(keep=False)], use_container_width=True)
 
     # ===============================================
     # TAB 2 — AI Dashboard
