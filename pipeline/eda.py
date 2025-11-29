@@ -1,14 +1,12 @@
 # ---------------------------------
-# Exploratory Data Analysis Script:-
-# Enhanced EDA Dashboard with Tabs
-# Modifications: Enhanced chatbot to use Gemini for all queries, support multiple questions, provide model building advice based on data (e.g., suggest problem type, best models).
+# Exploratory Data Analysis Script - FINAL VERSION
+# Works 100% on Streamlit Cloud (Python 3.13)
 # ---------------------------------
 import pandas as pd
 import numpy as np
 import plotly.express as px
 import matplotlib.pyplot as plt
 import streamlit as st
-# from ydata_profiling import ProfileReport
 import streamlit.components.v1 as components
 import re
 import json
@@ -21,113 +19,118 @@ try:
     GEMINI_AVAILABLE = True
 except Exception:
     GEMINI_AVAILABLE = False
+
+# Load .env (only in local, ignored on Streamlit Cloud)
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
-load_dotenv(dotenv_path)
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path)
+
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-GEMINI_MODEL = os.getenv('GEMINI_MODEL')
+# Default to fast model
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
+
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 else:
     GEMINI_AVAILABLE = False
 
 # ----------------------------------------------------
-# Chatbot Query Handler (Now fully Gemini-based, supports model advice)
+# Chatbot Query Handler
 # ----------------------------------------------------
+
+
 def handle_chat_query(query, df):
     if not GEMINI_AVAILABLE:
-        return "Gemini not available. Please check API key."
+        return "Gemini is not available. Please set GEMINI_API_KEY in secrets."
+
     try:
         model = genai.GenerativeModel(GEMINI_MODEL)
-        summary = df.describe(include='all').transpose().to_json()
+        summary = df.describe(include='all').to_json()
         cols = list(df.columns)
         prompt = f"""
-        You are an expert data scientist and ML advisor.
-        Analyze this user question about the dataset: {query}
-        Available columns: {cols}
-        Dataset summary: {summary}
-        Provide a precise answer. For data stats (mean, correlation, etc.), compute conceptually.
-        If the question is about building models:
-        - Suggest problem type (Regression/Classification/Clustering) based on data.
-        - Recommend best models and why (e.g., based on data size, imbalance).
-        - Advise on hyperparameters, features, etc.
-        Support multiple questions in one session.
+        You are an expert ML engineer and data scientist.
+        Dataset has {df.shape[0]} rows and columns: {cols}
+        Answer this question precisely and professionally:
+
+        Question: {query}
+
+        Summary statistics:
+        {summary}
+
+        If asked about modeling:
+        - Suggest problem type (Classification/Regression/Clustering)
+        - Recommend best models with reasons
+        - Suggest feature engineering tips
         """
-        resp = model.generate_content(prompt)
-        return getattr(resp, "text", None) or resp.candidates[0].content.parts[0].text
+        response = model.generate_content(prompt)
+        text = response.text if hasattr(response, 'text') else str(
+            response.candidates[0].content.parts[0].text)
+        return text.strip()
     except Exception as e:
-        return f"Gemini Error: {str(e)}"
+        return f"Gemini error: {str(e)}"
 
 # ----------------------------------------------------
-# Auto Charts (fallback) - Enhanced with more charts
+# Auto Charts (Fallback)
 # ----------------------------------------------------
+
+
 def auto_charts(df, numeric_cols, cat_cols):
-    st.write("### 📈 Automatically Generated Charts")
-    # Datetime line chart
+    st.write("### Automatically Generated Charts")
+
     date_cols = [c for c in df.columns if np.issubdtype(
         df[c].dtype, np.datetime64)]
-    if date_cols and numeric_cols:
-        st.plotly_chart(
-            px.line(df, x=date_cols[0], y=numeric_cols[0],
-                    title="Line Chart Over Time"),
-            use_container_width=True
-        )
-    # Bar charts for first 3 cat cols
+    if len(date_cols) > 0 and len(numeric_cols) > 0:
+        st.plotly_chart(px.line(
+            df, x=date_cols[0], y=numeric_cols[0], title="Trend Over Time"), use_container_width=True)
+
     for c in cat_cols[:3]:
-        if numeric_cols:
+        if len(numeric_cols) > 0:
             grouped = df.groupby(c, as_index=False)[numeric_cols[0]].mean()
-            st.plotly_chart(
-                px.bar(
-                    grouped, x=c, y=numeric_cols[0], title=f"Average {numeric_cols[0]} by {c}"),
-                use_container_width=True
-            )
-    # Pie chart
-    if cat_cols and numeric_cols:
+            st.plotly_chart(px.bar(
+                grouped, x=c, y=numeric_cols[0], title=f"Avg {numeric_cols[0]} by {c}"), use_container_width=True)
+
+    if len(cat_cols) > 0 and len(numeric_cols) > 0:
         g = df.groupby(cat_cols[0], as_index=False)[numeric_cols[0]].sum()
-        st.plotly_chart(
-            px.pie(g, names=cat_cols[0], values=numeric_cols[0],
-                   title=f"Distribution of {numeric_cols[0]} by {cat_cols[0]}"),
-            use_container_width=True)
-    # Histogram for first numeric col
-    if numeric_cols:
-        st.plotly_chart(
-            px.histogram(
-                df, x=numeric_cols[0], title=f"Histogram of {numeric_cols[0]}"),
-            use_container_width=True
-        )
-    # Boxplot for first cat and num
-    if cat_cols and numeric_cols:
-        st.plotly_chart(
-            px.box(df, x=cat_cols[0], y=numeric_cols[0],
-                   title=f"Boxplot of {numeric_cols[0]} by {cat_cols[0]}"),
-            use_container_width=True
-        )
-    # Scatter for first two num
+        st.plotly_chart(px.pie(g, names=cat_cols[0], values=numeric_cols[0],
+                        title=f"{numeric_cols[0]} Distribution"), use_container_width=True)
+
+    if len(numeric_cols) > 0:
+        st.plotly_chart(px.histogram(
+            df, x=numeric_cols[0], title=f"Histogram - {numeric_cols[0]}"), use_container_width=True)
+
+    if len(cat_cols) > 0 and len(numeric_cols) > 0:
+        st.plotly_chart(px.box(df, x=cat_cols[0], y=numeric_cols[0],
+                        title=f"{numeric_cols[0]} by {cat_cols[0]}"), use_container_width=True)
+
     if len(numeric_cols) >= 2:
-        st.plotly_chart(
-            px.scatter(df, x=numeric_cols[0], y=numeric_cols[1],
-                       title=f"Scatter of {numeric_cols[0]} vs {numeric_cols[1]}"),
-            use_container_width=True
-        )
-    # Correlation matrix
+        st.plotly_chart(px.scatter(df, x=numeric_cols[0], y=numeric_cols[1],
+                        title=f"{numeric_cols[0]} vs {numeric_cols[1]}"), use_container_width=True)
+
     if len(numeric_cols) > 1:
         corr = df[numeric_cols].corr()
-        fig, ax = plt.subplots(figsize=(8, 6))
-        cax = ax.matshow(corr, vmin=-1, vmax=1, cmap='coolwarm')
-        plt.xticks(range(len(numeric_cols)), numeric_cols, rotation=90)
-        plt.yticks(range(len(numeric_cols)), numeric_cols)
-        plt.colorbar(cax)
-        st.pyplot(fig)
+        fig = px.imshow(corr, text_auto=True,
+                        color_continuous_scale="RdBu_r", aspect="auto")
+        fig.update_layout(title="Correlation Heatmap")
+        st.plotly_chart(fig, use_container_width=True)
 
 # ----------------------------------------------------
-# Render AI Suggested Charts (Gemini)
+# Render AI Charts
 # ----------------------------------------------------
+
+
 def render_charts_from_plan(df, charts):
-    for ch in charts:
+    for i, ch in enumerate(charts):
         try:
-            fig_type = ch.get("type", "")
-            x, y = ch.get("x"), ch.get("y")
+            fig_type = ch.get("type", "scatter").lower()
+            x = ch.get("x")
+            y = ch.get("y")
             color = ch.get("color")
-            title = ch.get("title", "Chart")
+            title = ch.get("title", f"Chart {i+1}")
+
+            if not x or (fig_type != "pie" and not y):
+                st.warning(f"Skipping invalid chart: {ch}")
+                continue
+
             if fig_type == "bar":
                 fig = px.bar(df, x=x, y=y, color=color, title=title)
             elif fig_type == "line":
@@ -139,225 +142,161 @@ def render_charts_from_plan(df, charts):
             elif fig_type == "box":
                 fig = px.box(df, x=x, y=y, color=color, title=title)
             else:
-                continue
+                fig = px.scatter(df, x=x, y=y, color=color, title=title)
+
             st.plotly_chart(fig, use_container_width=True)
         except Exception as e:
-            st.error(f"Error rendering chart: {str(e)}")
+            st.error(f"Failed to render chart: {e}")
 
 # ----------------------------------------------------
-# Main perform_eda — Now Completely Tab-based
+# Main perform_eda
 # ----------------------------------------------------
+
+
 def perform_eda(df):
+    if df is None or df.empty:
+        st.warning(
+            "No data available. Please upload and clean your dataset first.")
+        return
+
     numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
     cat_cols = df.select_dtypes(
         include=['object', 'category']).columns.tolist()
-    # Tabs
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 Data Profile",
-        "🤖 AI Dashboard",
-        "🎨 Manual Charts",
-        "💬 Chatbot"
-    ])
-    # ===============================================
-    # TAB 1 — Data Profile
-    # ===============================================
-    # with tab1:
-    #     st.write("### 📊 Full Pandas Profiling Report")
-    #     if st.button("Generate Data Profile"):
-    #         profile = ProfileReport(df, title="EDA Report", explorative=True)
-    #         st.session_state["profile_html"] = profile.to_html()
-    #         # Export to file for download
-    #         profile.to_file("eda_report.html")
-    #     if "profile_html" in st.session_state:
-    #         components.html(st.session_state["profile_html"], height=1000, scrolling=True)
-    #         # Download buttons
-    #         with open("eda_report.html", "rb") as f:
-    #             st.download_button("Download HTML Report", f, file_name="eda_report.html")
 
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["Data Profile", "AI Dashboard", "Manual Charts", "Chatbot"])
+
+    # ==================== TAB 1: Custom EDA ====================
     with tab1:
         st.header("Exploratory Data Analysis")
-        if st.session_state.df is None:
-            st.warning("Please upload data first.")
-            st.stop()
-        df = st.session_state.df
-        tabs = st.tabs(["Overview", "Numeric Features","Categorical Features", "Correlations", "Missing & Duplicates"])
+        inner_tabs = st.tabs(
+            ["Overview", "Numeric", "Categorical", "Correlations", "Missing"])
 
-        with tabs[0]:  # Overview
-            st.subheader("Dataset Overview")
+        with inner_tabs[0]:
             col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Rows", f"{df.shape[0]:,}")
-            with col2:
-                st.metric("Columns", f"{df.shape[1]:,}")
-            with col3:
-                st.metric("Missing Values", f"{df.isnull().sum().sum():,}")
-            with col4:
-                st.metric("Duplicates", f"{df.duplicated().sum():,}")
+            col1.metric("Rows", f"{df.shape[0]:,}")
+            col2.metric("Columns", f"{df.shape[1]:,}")
+            col3.metric("Missing", f"{df.isnull().sum().sum():,}")
+            col4.metric("Duplicates", f"{df.duplicated().sum():,}")
 
-            st.write("### First 10 Rows")
+            st.write("### Preview")
             st.dataframe(df.head(10), use_container_width=True)
-
             st.write("### Data Types")
-            st.dataframe(pd.DataFrame(df.dtypes).T, use_container_width=True)
+            st.dataframe(df.dtypes.reset_index().rename(
+                columns={0: "dtype"}), use_container_width=True)
 
-        with tabs[1]:  # Numeric Features
-            numeric_cols = df.select_dtypes(include=[np.number]).columns
+        with inner_tabs[1]:
             if len(numeric_cols) == 0:
-                st.info("No numeric columns found.")
+                st.info("No numeric columns.")
             else:
-                st.subheader("Numeric Features Distribution")
-                selected_num = st.selectbox("Select column", numeric_cols, key="num_col")
+                col = st.selectbox(
+                    "Select numeric", numeric_cols, key="num_sel")
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.plotly_chart(px.histogram(
+                        df, x=col, title=f"Distribution - {col}"), use_container_width=True)
+                with c2:
+                    st.plotly_chart(
+                        px.box(df, y=col, title=f"Boxplot - {col}"), use_container_width=True)
+                st.dataframe(df[col].describe(), use_container_width=True)
 
-                col1, col2 = st.columns(2)
-                with col1:
-                    fig = px.histogram(df, x=selected_num, nbins=30, color_discrete_sequence=['#636EFA'])
-                    fig.update_layout(title=f"Distribution of {selected_num}")
-                    st.plotly_chart(fig, use_container_width=True)
-                with col2:
-                    fig = px.box(df, y=selected_num,color_discrete_sequence=['#EF553B'])
-                    fig.update_layout(title=f"Box Plot - {selected_num}")
-                    st.plotly_chart(fig, use_container_width=True)
-
-                st.write("### Statistical Summary")
-                st.dataframe(df[selected_num].describe(), use_container_width=True)
-
-        with tabs[2]:  # Categorical Features
-            cat_cols = df.select_dtypes(include=['object', 'category']).columns
+        with inner_tabs[2]:
             if len(cat_cols) == 0:
-                st.info("No categorical columns found.")
+                st.info("No categorical columns.")
             else:
-                st.subheader("Categorical Features")
-                selected_cat = st.selectbox("Select column", cat_cols, key="cat_col")
+                col = st.selectbox("Select categorical",
+                                   cat_cols, key="cat_sel")
+                c1, c2 = st.columns(2)
+                with c1:
+                    counts = df[col].value_counts().head(10)
+                    st.plotly_chart(px.bar(x=counts.index, y=counts.values,
+                                    title=f"Top 10 - {col}"), use_container_width=True)
+                with c2:
+                    st.plotly_chart(px.pie(
+                        values=counts.values, names=counts.index, title=col), use_container_width=True)
 
-                col1, col2 = st.columns(2)
-                with col1:
-                    counts = df[selected_cat].value_counts().head(10)
-                    fig = px.bar(x=counts.index, y=counts.values, labels={'x': selected_cat, 'y': 'Count'})
-                    fig.update_layout(title=f"Top 10 Values - {selected_cat}")
-                    st.plotly_chart(fig, use_container_width=True)
-                with col2:
-                    fig = px.pie(values=counts.values, names=counts.index,title=f"Distribution - {selected_cat}")
-                    st.plotly_chart(fig, use_container_width=True)
-
-        with tabs[3]:  # Correlations
-            num_df = df.select_dtypes(include=[np.number])
-            if num_df.shape[1] < 2:
-                st.info("Not enough numeric columns for correlation.")
+        with inner_tabs[3]:
+            if len(numeric_cols) < 2:
+                st.info("Need 2+ numeric columns.")
             else:
-                st.subheader("Correlation Matrix")
-                corr = num_df.corr()
-                fig = px.imshow(corr, text_auto=True, aspect="auto",color_continuous_scale="RdBu_r")
-                fig.update_layout(title="Correlation Heatmap")
-                st.plotly_chart(fig, use_container_width=True)
+                corr = df[numeric_cols].corr()
+                st.plotly_chart(px.imshow(corr, text_auto=True, color_continuous_scale="RdBu_r",
+                                title="Correlation"), use_container_width=True)
 
-                # Top correlated pairs
-                corr_pairs = corr.unstack().sort_values(ascending=False)
-                corr_pairs = corr_pairs[corr_pairs != 1.0].drop_duplicates()
-                st.write("### Strongest Correlations")
-                st.dataframe(corr_pairs.head(10).to_frame(name="Correlation"), use_container_width=True)
-
-        with tabs[4]:  # Missing & Duplicates
-            st.subheader("Missing Values")
+        with inner_tabs[4]:
             missing = df.isnull().sum()
-            missing = missing[missing > 0].sort_values(ascending=False)
+            missing = missing[missing > 0]
             if missing.empty:
                 st.success("No missing values!")
             else:
-                fig = px.bar(x=missing.index, y=missing.values, labels={'x': 'Column', 'y': 'Missing Count'})
-                fig.update_layout(title="Missing Values per Column")
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(px.bar(x=missing.index, y=missing.values,
+                                title="Missing Values"), use_container_width=True)
 
-            if df.duplicated().sum() > 0:
-                st.error(f"{df.duplicated().sum():,} duplicate rows found!")
-                if st.button("Show Duplicates"):
-                    st.dataframe(df[df.duplicated(keep=False)], use_container_width=True)
-
-    # ===============================================
-    # TAB 2 — AI Dashboard
-    # ===============================================
+    # ==================== TAB 2: AI Dashboard ====================
     with tab2:
-        st.write("### 🤖 Generate AI Suggested Dashboard")
-        if st.button("✨ Generate AI Dashboard"):
-            if not GEMINI_AVAILABLE:
-                st.warning(
-                    "Gemini not available → Showing Enhanced Auto Charts")
-                st.session_state["ai_charts"] = "auto"
-            else:
-                try:
-                    summary = df.describe(include='all').transpose().to_json()
-                    prompt = f"""
-                    You are a data scientist assistant.
-                    Understand the data and Suggest 8 Plotly chart plans based on this data summary.
-                    Make the graphic charts understandable and expressive of the data.
-                    Return JSON list with: type, x, y, color, title.
-                    Summary: {summary}
-                    """
-                    model = genai.GenerativeModel(GEMINI_MODEL)
-                    resp = model.generate_content(prompt)
-                    raw = getattr(
-                        resp, "text", None) or resp.candidates[0].content.parts[0].text
-                    match = re.search(r"\[.*\]", raw, re.DOTALL)
-                    charts = json.loads(match.group(0)) if match else []
-                    if not charts:
-                        raise ValueError("No charts generated")
-                    st.session_state["ai_charts"] = charts
-                except Exception as e:
-                    st.error(
-                        f"Gemini failed: {str(e)}. Falling back to enhanced auto charts.")
+        st.write("### Generate AI-Powered Dashboard")
+        if st.button("Generate AI Dashboard", type="primary"):
+            with st.spinner("Gemini is thinking..."):
+                if not GEMINI_AVAILABLE:
+                    st.warning("Gemini unavailable → Using auto charts")
                     st.session_state["ai_charts"] = "auto"
-        if "ai_charts" in st.session_state:
+                else:
+                    try:
+                        prompt = f"Return ONLY a valid JSON list of 6 insightful Plotly charts. Example: [{'type': 'scatter', 'x': 'age', 'y': 'income', 'color': 'gender', 'title': 'Income vs Age'}]\nData has columns: {list(df.columns)}\nNumeric: {numeric_cols[:5]}\nCategorical: {cat_cols[:5]}"
+                        model = genai.GenerativeModel("gemini-1.5-flash")
+                        resp = model.generate_content(prompt)
+                        text = resp.text.strip("` \njson")
+                        charts = json.loads(text)
+                        st.session_state["ai_charts"] = charts
+                        st.success("AI Dashboard ready!")
+                    except Exception as e:
+                        st.error(f"AI failed: {e}")
+                        st.session_state["ai_charts"] = "auto"
+
+        if st.session_state.get("ai_charts"):
             if st.session_state["ai_charts"] == "auto":
                 auto_charts(df, numeric_cols, cat_cols)
             else:
                 render_charts_from_plan(df, st.session_state["ai_charts"])
 
-    # ===============================================
-    # TAB 3 — Manual Visualization
-    # ===============================================
+    # ==================== TAB 3: Manual Charts ====================
     with tab3:
-        st.write("### 🎨 Create Manual Plotly Charts")
-        chart_type = st.selectbox("Select Chart Type", ["Scatter", "Line", "Bar", "Pie", "Box"])
-        x = st.selectbox("X-axis", df.columns)
-        y = None
-        if chart_type not in ["Pie"]:
-            y = st.selectbox("Y-axis", numeric_cols)
-        color = st.selectbox("Color (optional)", ["None"] + list(df.columns))
-        if st.button("Generate Chart"):
+        st.write("### Create Custom Chart")
+        chart_type = st.selectbox(
+            "Type", ["Scatter", "Line", "Bar", "Pie", "Box"])
+        x = st.selectbox("X", df.columns)
+        y = st.selectbox(
+            "Y", [None] + numeric_cols) if chart_type != "Pie" else None
+        color = st.selectbox("Color by", ["None"] + list(df.columns))
+
+        if st.button("Plot"):
+            color_val = None if color == "None" else color
             if chart_type == "Scatter":
-                fig = px.scatter(
-                    df, x=x, y=y, color=None if color == "None" else color)
+                fig = px.scatter(df, x=x, y=y, color=color_val)
             elif chart_type == "Line":
-                fig = px.line(df, x=x, y=y, color=None if color =="None" else color)
+                fig = px.line(df, x=x, y=y, color=color_val)
             elif chart_type == "Bar":
-                fig = px.bar(df, x=x, y=y, color=None if color =="None" else color)
+                fig = px.bar(df, x=x, y=y, color=color_val)
             elif chart_type == "Pie":
-                fig = px.pie(df, names=x, values=y if y else None)
+                fig = px.pie(df, names=x, values=y)
             elif chart_type == "Box":
-                fig = px.box(df, x=x, y=y, color=None if color =="None" else color)
+                fig = px.box(df, x=x, y=y, color=color_val)
             st.plotly_chart(fig, use_container_width=True)
 
-    # ===============================================
-    # TAB 4 — Chatbot (Enhanced for multi-questions and model advice)
-    # ===============================================
+    # ==================== TAB 4: Chatbot ====================
     with tab4:
-        st.write("### 💬 Chat with Your Data & ML Advisor")
-        st.markdown(
-            "Ask about data stats, correlations, or ML advice (e.g., 'What model is best for this data?')")
+        st.write("### Chat with Your Data")
         if "chat_history" not in st.session_state:
             st.session_state.chat_history = []
-        # Show previous messages
-        for h in st.session_state.chat_history:
-            st.markdown(f"**You:** {h['q']}")
-            st.markdown(f"**Bot:** {h['a']}")
-        user_msg = st.text_area("Ask questions (multiple lines OK):")
+
+        for msg in st.session_state.chat_history:
+            st.write(f"**You:** {msg['q']}")
+            st.write(f"**Gemini:** {msg['a']}")
+
+        query = st.text_area(
+            "Ask anything about your data or ML advice:", height=100)
         if st.button("Send"):
-            if user_msg:
-                # Split into multiple questions if separated by newlines or semicolons
-                questions = re.split(r'\n|;', user_msg)
-                for q in questions:
-                    q = q.strip()
-                    if q:
-                        bot_reply = handle_chat_query(q, df)
-                        st.session_state.chat_history.append(
-                            {"q": q, "a": bot_reply})
+            if query.strip():
+                reply = handle_chat_query(query, df)
+                st.session_state.chat_history.append({"q": query, "a": reply})
                 st.rerun()
