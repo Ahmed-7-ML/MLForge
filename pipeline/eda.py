@@ -1,6 +1,9 @@
 # ---------------------------------
-# Exploratory Data Analysis Script - FINAL VERSION
-# Works 100% on Streamlit Cloud (Python 3.13)
+# Exploratory Data Analysis Script
+# Render AI Charts
+# Chatbot Query Handler
+# Auto Charts (Fallback)
+# Main perform_eda (Custom EDA, AI Dashboard,Manual Charts and Chatbot)
 # ---------------------------------
 import pandas as pd
 import numpy as np
@@ -37,8 +40,6 @@ else:
 # ----------------------------------------------------
 # Chatbot Query Handler
 # ----------------------------------------------------
-
-
 def handle_chat_query(query, df):
     if not GEMINI_AVAILABLE:
         return "Gemini is not available. Please set GEMINI_API_KEY in secrets."
@@ -72,8 +73,6 @@ def handle_chat_query(query, df):
 # ----------------------------------------------------
 # Auto Charts (Fallback)
 # ----------------------------------------------------
-
-
 def auto_charts(df, numeric_cols, cat_cols):
     st.write("### Automatically Generated Charts")
 
@@ -116,8 +115,6 @@ def auto_charts(df, numeric_cols, cat_cols):
 # ----------------------------------------------------
 # Render AI Charts
 # ----------------------------------------------------
-
-
 def render_charts_from_plan(df, charts):
     for i, ch in enumerate(charts):
         try:
@@ -151,8 +148,6 @@ def render_charts_from_plan(df, charts):
 # ----------------------------------------------------
 # Main perform_eda
 # ----------------------------------------------------
-
-
 def perform_eda(df):
     if df is None or df.empty:
         st.warning(
@@ -262,11 +257,9 @@ def perform_eda(df):
     # ==================== TAB 3: Manual Charts ====================
     with tab3:
         st.write("### Create Custom Chart")
-        chart_type = st.selectbox(
-            "Type", ["Scatter", "Line", "Bar", "Pie", "Box"])
+        chart_type = st.selectbox("Type", ["Scatter", "Line", "Bar", "Pie", "Box"])
         x = st.selectbox("X", df.columns)
-        y = st.selectbox(
-            "Y", [None] + numeric_cols) if chart_type != "Pie" else None
+        y = st.selectbox("Y", [None] + numeric_cols) if chart_type != "Pie" else None
         color = st.selectbox("Color by", ["None"] + list(df.columns))
 
         if st.button("Plot"):

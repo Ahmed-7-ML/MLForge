@@ -97,6 +97,10 @@ def normalize_cols(df, log=None):
     """
     df = df.copy()
     df.columns = df.columns.str.lower().str.strip().str.replace(' ', '_', regex=False)
+    # Remove columns containing 'id' (case insensitive)
+    cols_to_drop = [col for col in df.columns if 'id' in col]
+    if cols_to_drop:
+        df = df.drop(columns=cols_to_drop)
     for col in df.select_dtypes(include=['object']).columns:
         try:
             df[col] = df[col].astype(str).str.strip().str.replace(' ', '_', regex=False).str.lower()
@@ -227,4 +231,3 @@ def clip_outliers(df, log=None):
     mlflow.log_param("outliers_clipped", str(outlier_summary))
 
     return df2
-
