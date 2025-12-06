@@ -9,9 +9,9 @@ import pandas as pd
 import streamlit as st
 # st.set_option('deprecation.showPyplotGlobalUse', False)
 # st.set_option('deprecation.showfileUploaderEncoding', False)
-pd.set_option("styler.render.max_elements", 1000000)
-warnings.filterwarnings("ignore", category=FutureWarning, module="streamlit")
-warnings.filterwarnings("ignore", category=UserWarning, module="pyarrow")
+# pd.set_option("styler.render.max_elements", 1000000)
+# warnings.filterwarnings("ignore", category=FutureWarning, module="streamlit")
+# warnings.filterwarnings("ignore", category=UserWarning, module="pyarrow")
 
 
 from pipeline.data import load_data, clean_data
