@@ -160,7 +160,7 @@ with tab4:
     n_trials = st.slider("Number of Trials/Iterations", 5, 50, 10, key="n_trials_key", help="Number of hyperparameter combinations to try (ignored for Grid).")
     confirm_modeling = st.checkbox("Confirm: I understand training may take time.", help="Check to enable the start button for large actions.", key="confirm_modeling_key")
 
-    if confirm_modeling and st.button("🚀 Start Modeling", type="primary", use_container_width=True):
+    if confirm_modeling and st.button("🚀 Start Modeling", type="primary", width='stretch'):
         if problem in ['Classification', 'Regression'] and not target:
             st.error("Please select a target column.")
         else:
@@ -182,7 +182,7 @@ with tab4:
         st.markdown("---")
         st.success("🎉 Training Ends Successfully, Now Save the Models")
         confirm_save = st.checkbox("Confirm: Save the best model for deployment.", key="confirm_save_key")
-        if confirm_save and st.button("💾 Save Best Model for Deployment", type="primary", use_container_width=True):
+        if confirm_save and st.button("💾 Save Best Model for Deployment", type="primary", width='stretch'):
             target_encoder = st.session_state.target_encoder_saved
             feature_names_saved = st.session_state.feature_names_saved  # post-dummies
             original_feature_names = st.session_state.original_feature_names
