@@ -307,10 +307,21 @@ def evaluate_regression_models(best_models, X_test, y_test):
             st.write(f"**MAPE:** `{mape(y_test, y_pred):.3f}`")
             st.write(f"**MSE:** `{mse(y_test, y_pred):.3f}`")
             st.write(f"**RMSE:** `{np.sqrt(mse(y_test, y_pred)):.3f}`")
+
     # Summary table
-    results_df = pd.DataFrame(results).sort_values(by='R² Test', ascending=False)
+    results_df = pd.DataFrame(results)
+    if 'R² Test' in results_df.columns:
+        results_df = results_df.sort_values(by='R² Test', ascending=False)
+    elif 'R2 Test' in results_df.columns:
+        results_df = results_df.sort_values(by='R2 Test', ascending=False)
+    elif 'R²' in results_df.columns:
+        results_df = results_df.sort_values(by='R²', ascending=False)
+    else:
+        results_df = results_df.sort_values(by='RMSE', ascending=True)
+
+    st.dataframe(results_df, width='stretch')
     st.write("### Best Model Summary")
-    st.dataframe(results_df, use_container_width=True)
+    st.dataframe(results_df, width='stretch')
 
 def evaluate_classification_models(best_models, X_test, y_test):
     st.header("Classification Models Evaluation")
@@ -327,7 +338,7 @@ def evaluate_classification_models(best_models, X_test, y_test):
             st.write(f"**Accuracy:** `{acc:.3f}` | **F1-Score:** `{f1:.3f}`")
             st.text(classification_report(y_test, y_pred))
             st.write("**Confusion Matrix:**")
-            st.dataframe(pd.DataFrame(confusion_matrix(y_test, y_pred)), use_container_width=True)
+            st.dataframe(pd.DataFrame(confusion_matrix(y_test, y_pred)), width='stretch')
 
     results_df = pd.DataFrame(results)
     if 'F1' in results_df.columns:
@@ -341,7 +352,7 @@ def evaluate_classification_models(best_models, X_test, y_test):
 
     st.dataframe(results_df, width='stretch')
     st.write("### Best Model Summary")
-    st.dataframe(results_df, use_container_width=True)
+    st.dataframe(results_df, width='stretch')
 
 # ==================== CLUSTERING WITH ELBOW METHOD ====================
 @st.cache_data
