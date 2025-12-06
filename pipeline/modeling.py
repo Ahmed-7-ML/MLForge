@@ -378,7 +378,7 @@ def build_clustering_models(X_train, X_test, algorithm):
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=list(K), y=inertias, mode='lines+markers'))
         fig.update_layout(title="Elbow Method for Optimal K",xaxis_title="Number of Clusters", yaxis_title="Inertia")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
         # User selects K
         n_clusters = st.slider("Select number of clusters", 2, 10, 3)
