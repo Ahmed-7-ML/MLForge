@@ -217,15 +217,39 @@ def perform_eda(df):
                     st.session_state["ai_charts"] = "auto"
                 else:
                     try:
-                        prompt = f"Return ONLY a valid JSON list of 6 insightful Plotly charts. Example: [{'type': 'scatter', 'x': 'age', 'y': 'income', 'color': 'gender', 'title': 'Income vs Age'}]\nData has columns: {list(df.columns)}\nNumeric: {numeric_cols[:5]}\nCategorical: {cat_cols[:5]}"
+                        prompt = f"""
+                        You are an expert data visualization analyst.
+                        Return ONLY a valid JSON array (no extra text, no markdown, no explanation) containing exactly 6 insightful Plotly charts.
+                        Use this exact format (no backticks, no json word):
+
+                        [
+                        {{"type": "scatter", "x": "age", "y": "income",
+                            "color": "gender", "title": "Income vs Age by Gender"}},
+                        {{"type": "histogram", "x": "age", "color": "churn",
+                            "title": "Age Distribution by Churn"}},
+                        ...
+                        ]
+
+                        Data columns: {list(df.columns)}
+                        Numeric columns: {numeric_cols}
+                        Categorical columns: {cat_cols}
+
+                        Return only the JSON array. Nothing else.
+                        """
                         model = genai.GenerativeModel("gemini-1.5-flash")
                         resp = model.generate_content(prompt)
-                        text = resp.text.strip("` \njson")
-                        charts = json.loads(text)
+                        text = resp.text
+                        match = re.search(r'$$ .* $$', text, re.DOTALL)
+                        if not match:
+                            raise ValueError("No JSON array found in Gemini response")
+                        charts = json.loads(match.group(0))
+                        if not isinstance(charts, list) or len(charts) == 0:
+                            raise ValueError("Invalid charts structure")
                         st.session_state["ai_charts"] = charts
                         st.success("AI Dashboard ready!")
                     except Exception as e:
                         st.error(f"AI failed: {e}")
+                        st.info("Falling back to automatic EDA charts...")
                         st.session_state["ai_charts"] = "auto"
 
         if st.session_state.get("ai_charts"):
