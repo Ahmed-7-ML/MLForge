@@ -47,25 +47,19 @@ def load_data(file_path):
 def clean_data(df):
     log = {}
     run_id = None
-
     with mlflow.start_run(run_name="Data Cleaning Pipeline") as run:
         run_id = run.info.run_id
 
         with st.expander("1. Normalize Column Names & Values", expanded=True):
             df = normalize_cols(df, log)
-
         with st.expander("2. Handle Timestamp Columns", expanded=True):
             df = handle_timestamps(df, log)
-
         with st.expander("3. Handle Missing Values", expanded=True):
-            df = handle_missing(df, log)
-
+            df = handle_missing(df, log)  # ← تم التصليح: حفظ الرجوع
         with st.expander("4. Remove Duplicates", expanded=True):
             df = remove_duplicates(df, log)
-
         with st.expander("5. Clip Outliers", expanded=True):
             df = clip_outliers(df, log)
-
 
     return df, log, run_id
 
@@ -122,8 +116,7 @@ def handle_timestamps(df, log=None):
                 df[f'{col}_minute'] = temp.dt.minute
                 df[f'{col}_weekday'] = temp.dt.weekday
                 df.drop(col, axis=1, inplace=True)
-                st.success(
-                    f"Converted '{col}' → extracted year, month, day, hour, weekday")
+                st.success(f"Converted '{col}' → extracted year, month, day, hour, weekday")
 
     if log:
         log["timestamp_columns_converted"] = timestamp_cols
@@ -175,8 +168,7 @@ def handle_missing(df, log=None):
     if missing_after == 0:
         st.success("All missing values filled!")
     else:
-        st.warning(
-            f"{missing_after} values still missing (full null columns?)")
+        st.warning(f"{missing_after} values still missing (full null columns?)")
 
     if log:
         log["missing_after"] = missing_after

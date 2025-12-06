@@ -4,16 +4,7 @@
 # st.sidebar.title("App Journey")
 # page = st.sidebar.radio("Go To", ["🏠 Home", "🧹 Data Cleaning", "📊 EDA", "🤖 Modeling", "🚀 Deployment"])
 
-import warnings
-import pandas as pd
 import streamlit as st
-# st.set_option('deprecation.showPyplotGlobalUse', False)
-# st.set_option('deprecation.showfileUploaderEncoding', False)
-# pd.set_option("styler.render.max_elements", 1000000)
-# warnings.filterwarnings("ignore", category=FutureWarning, module="streamlit")
-# warnings.filterwarnings("ignore", category=UserWarning, module="pyarrow")
-
-
 from pipeline.data import load_data, clean_data
 from pipeline.eda import perform_eda
 from pipeline.modeling import identify_problem, prepare_df, build_clustering_models

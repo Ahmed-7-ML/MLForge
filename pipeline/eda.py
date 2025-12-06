@@ -238,18 +238,14 @@ def perform_eda(df):
                         """
                         model = genai.GenerativeModel("gemini-1.5-flash")
                         resp = model.generate_content(prompt)
-                        text = resp.text
-                        match = re.search(r'$$ .* $$', text, re.DOTALL)
-                        if not match:
-                            raise ValueError("No JSON array found in Gemini response")
-                        charts = json.loads(match.group(0))
-                        if not isinstance(charts, list) or len(charts) == 0:
-                            raise ValueError("Invalid charts structure")
+                        json_text = re.search(r'\[[\s\S]*\]', resp.text, re.DOTALL)
+                        if not json_text:
+                            raise ValueError("No JSON found")
+                        charts = json.loads(json_text.group(0))
                         st.session_state["ai_charts"] = charts
                         st.success("AI Dashboard ready!")
                     except Exception as e:
                         st.error(f"AI failed: {e}")
-                        st.info("Falling back to automatic EDA charts...")
                         st.session_state["ai_charts"] = "auto"
 
         if st.session_state.get("ai_charts"):
