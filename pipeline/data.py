@@ -71,6 +71,9 @@ def clean_data(df):
     with mlflow.start_run(run_name="Data Cleaning Pipeline") as run:
         with st.expander("Normalize Column Names and Values"):
             df = normalize_cols(df, log)
+        # Timestamp Data Handling
+        with st.expander("Handle Timestamp Data"):
+            df = handle_timestamps(df, log)
         # Missing values
         with st.expander("Handling Missing Values"):
             df = handle_missing(df, log)
@@ -80,6 +83,7 @@ def clean_data(df):
         # Outliers Handling
         with st.expander("Clipping Outliers"):
             df = clip_outliers(df, log)
+
 
     return df, log, run.info.run_id
 
@@ -225,3 +229,31 @@ def clip_outliers(df, log=None):
     mlflow.log_param("outliers_clipped", str(outlier_summary))
 
     return df2
+
+# ---------------------------------
+# Handle Timestamp Data
+# ---------------------------------
+def handle_timestamps(df, log=None):
+    """
+        - Convert Timestamp Columns into DataTime Columns.
+        - Extract Important Features from them.
+        - Drop the original columns.
+    """
+    for col in df.select_dtypes(include=['object']).columns:
+        try:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+            if not df[col].isnull().all():
+                df[f'{col}_year'] = df[col].dt.year
+                df[f'{col}_month'] = df[col].dt.month
+                df[f'{col}_day'] = df[col].dt.day
+                df[f'{col}_hour'] = df[col].dt.hour
+                df[f'{col}_minute'] = df[col].dt.minute
+                df[f'{col}_second'] = df[col].dt.second
+                df[f'{col}_weekday'] = df[col].dt.weekday
+                # Drop the original columns to avoid being encdoed
+                df.drop(col, axis=1, inplace=True)
+                st.success(f"Timestamp column '{col}' converted and features extracted successfully!")
+        except:
+            pass
+
+    return df
