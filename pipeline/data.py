@@ -66,26 +66,30 @@ def clean_data(df):
     Returns: cleaned_df, log_dict (UI handled outside)
     """
     log = {}
+    run_id = None
 
     # Start MLflow run for logging
     with mlflow.start_run(run_name="Data Cleaning Pipeline") as run:
-        with st.expander("Normalize Column Names and Values"):
+        run_id = run.info.run_id
+
+        with st.expander("1. Normalize Column Names and Values", expanded=True):
             df = normalize_cols(df, log)
         # Timestamp Data Handling
-        with st.expander("Handle Timestamp Data"):
+        with st.expander("2. Handle Timestamp Data", expanded=True):
             df = handle_timestamps(df, log)
         # Missing values
-        with st.expander("Handling Missing Values"):
+        with st.expander("3. Handling Missing Values", expanded=True):
             df = handle_missing(df, log)
         # Duplicates Removal
-        with st.expander("Removing Duplicates"):
+        with st.expander("4. Removing Duplicates", expanded=True):
             df = remove_duplicates(df, log)
         # Outliers Handling
-        with st.expander("Clipping Outliers"):
+        with st.expander("5. Clipping Outliers", expanded=True):
             df = clip_outliers(df, log)
 
+    st.success("Data Cleaning Pipeline Completed Successfully!")
 
-    return df, log, run.info.run_id
+    return df, log, run_id
 
 # ---------------------------------
 # Column Names and Values Normalization
@@ -247,6 +251,9 @@ def handle_timestamps(df, log=None):
         - Extract Important Features from them.
         - Drop the original columns.
     """
+    df = df.copy()
+    timestamp_cols = []
+    
     for col in df.select_dtypes(include=['object']).columns:
         try:
             df[col] = pd.to_datetime(df[col], errors='coerce')
