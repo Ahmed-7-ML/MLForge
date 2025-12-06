@@ -16,6 +16,9 @@ model = None
 feature_names = None
 target_encoder = None
 
+# Ensure models directory exists
+os.makedirs("models", exist_ok=True)
+
 # Load the model, feature names, and target encoder if files exist
 if os.path.exists("models/best_model.pkl"):
     model = pickle.load(open("models/best_model.pkl", "rb"))
@@ -70,8 +73,7 @@ def predict(payload: InputData):
     # Input validation: Check if all required features are present (already enforced by Pydantic, but double-check)
     missing_features = [f for f in feature_names if f not in df.columns]
     if missing_features:
-        raise HTTPException(
-            status_code=400, detail=f"Missing features: {missing_features}")
+        raise HTTPException(status_code=400, detail=f"Missing features: {missing_features}")
 
     # Reindex to match model's feature order, fill missing with 0 (though Pydantic should prevent missing)
     df = df.reindex(columns=feature_names, fill_value=0)
@@ -98,8 +100,7 @@ def explain(payload: InputData):
     # Input validation: Same as predict, check for missing features
     missing_features = [f for f in feature_names if f not in df.columns]
     if missing_features:
-        raise HTTPException(
-            status_code=400, detail=f"Missing features: {missing_features}")
+        raise HTTPException(status_code=400, detail=f"Missing features: {missing_features}")
 
     # Reindex to match model's feature order
     df = df.reindex(columns=feature_names, fill_value=0)
@@ -124,5 +125,4 @@ def explain(payload: InputData):
             "feature_names": feature_names
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"SHAP explanation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"SHAP explanation error: {str(e)}")

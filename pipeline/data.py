@@ -71,20 +71,16 @@ def clean_data(df):
     with mlflow.start_run(run_name="Data Cleaning Pipeline") as run:
         with st.expander("Normalize Column Names and Values"):
             df = normalize_cols(df, log)
-
         # Missing values
         with st.expander("Handling Missing Values"):
             df = handle_missing(df, log)
-
         # Duplicates Removal
         with st.expander("Removing Duplicates"):
             df = remove_duplicates(df, log)
-
         # Outliers Handling
         with st.expander("Clipping Outliers"):
             df = clip_outliers(df, log)
 
-    # Removed st. UI calls; return for app.py to handle
     return df, log, run.info.run_id
 
 # ---------------------------------
@@ -181,9 +177,7 @@ def remove_duplicates(df, log=None):
     df2 = df.drop_duplicates()
     len_after = len(df2)
     removed = len_before - len_after
-
     st.write(f"🗑️ Removed **{removed}** duplicate rows")
-
     if log is not None:
         log["duplicates_removed"] = removed
     mlflow.log_param("duplicates_removed", removed)

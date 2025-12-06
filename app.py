@@ -5,7 +5,6 @@
 # page = st.sidebar.radio("Go To", ["🏠 Home", "🧹 Data Cleaning", "📊 EDA", "🤖 Modeling", "🚀 Deployment"])
 
 import streamlit as st
-import pandas as pd
 from pipeline.data import load_data, clean_data
 from pipeline.eda import perform_eda
 from pipeline.modeling import identify_problem, prepare_df, build_clustering_models
@@ -41,10 +40,13 @@ if "df" not in st.session_state:
     st.session_state.df = None
     st.session_state.cleaned = False
     st.session_state.cleaned_df = None
+
 if "chat_open" not in st.session_state:
     st.session_state.chat_open = False
+
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+
 if "api_process" not in st.session_state:
     st.session_state.api_process = None  # To store the API subprocess
 
@@ -121,29 +123,33 @@ with tab3:
 with tab4:
     st.header("🤖 Build and Train Models")
     st.markdown("Select problem type and target, then train multiple models automatically.")
-
     if st.session_state.df is None:
         st.warning("⚠️ Please upload and clean data before modeling.")
         st.stop()
 
-    problem = st.selectbox("Problem Type", ["Classification", "Regression", "Clustering"], key="problem_select",help="Choose the ML task: Classification (categories), Regression (numbers), Clustering (groups).")
-
+    problem = st.selectbox("Problem Type", ["Classification", "Regression", "Clustering"], key="problem_select", help="Choose the ML task: Classification (categories), Regression (numbers), Clustering (groups).")
+    
     # User selects the target column
     all_cols = st.session_state.df.columns.tolist()
-    target = st.selectbox("Select target column", all_cols, key="target_select",help="The column to predict (not needed for Clustering).") if problem != "Clustering" else None
-
+    target = st.selectbox("Select target column", all_cols, key="target_select", help="The column to predict (not needed for Clustering).") if problem != "Clustering" else None
+    
     # More user control: Select models, search type, number of trials
     available_models_dict = {
         "Classification": ['LogisticRegression', 'RandomForestClassifier', 'XGBClassifier', 'MLPClassifier', 'KNeighborsClassifier', 'SVC', 'DecisionTreeClassifier'],
         "Regression": ['LinearRegression', 'RandomForestRegressor', 'XGBRegressor', 'MLPRegressor', 'KNeighborsRegressor', 'SVR', 'DecisionTreeRegressor'],
         "Clustering": ['KMeans', 'DBSCAN']
     }
-    available_models = available_models_dict.get(problem, [])
-    selected_models = st.multiselect("Select Models to Train", available_models, default=available_models[:3], key="selected_models_key")
-    search_type = st.selectbox("Hyperparameter Search Type", ["Random", "Grid", "Optuna"], key="search_type_key",help="Choose tuning method: Random (random search), Grid (exhaustive), Optuna (efficient Bayesian).")
-    n_trials = st.slider("Number of Trials/Iterations", 5, 50, 10, key="n_trials_key",help="Number of hyperparameter combinations to try (ignored for Grid).")
 
-    confirm_modeling = st.checkbox("Confirm: I understand training may take time.",help="Check to enable the start button for large actions.", key="confirm_modeling_key")
+    available_models = available_models_dict.get(problem, [])
+    if problem == "Clustering":
+        # Changed to selectbox for single selection
+        selected_models = st.selectbox("Select Algorithm", available_models, key="selected_models_key")
+    else:
+        selected_models = st.multiselect("Select Models to Train", available_models, default=available_models[:3], key="selected_models_key")
+
+    search_type = st.selectbox("Hyperparameter Search Type", ["Random", "Grid", "Optuna"], key="search_type_key", help="Choose tuning method: Random (random search), Grid (exhaustive), Optuna (efficient Bayesian).")
+    n_trials = st.slider("Number of Trials/Iterations", 5, 50, 10, key="n_trials_key", help="Number of hyperparameter combinations to try (ignored for Grid).")
+    confirm_modeling = st.checkbox("Confirm: I understand training may take time.", help="Check to enable the start button for large actions.", key="confirm_modeling_key")
 
     if confirm_modeling and st.button("🚀 Start Modeling", type="primary", use_container_width=True):
         if problem in ['Classification', 'Regression'] and not target:
@@ -152,22 +158,21 @@ with tab4:
             st.session_state.modeling_initiated = True
             with st.spinner("⏳ The models are being trained...it might take a minute or two"):
                 progress_bar = st.progress(0)
-                identify_problem(st.session_state.df, problem, target, st.session_state.selected_models_key,st.session_state.search_type_key, st.session_state.n_trials_key)
+                identify_problem(st.session_state.df, problem, target, selected_models, search_type, n_trials)
                 progress_bar.progress(1.0)
             st.session_state.training_done = True
 
     if problem == 'Clustering':
-            with st.spinner("Preparing data for clustering..."):
-                X_train, X_test, _, _, _, _ = prepare_df(st.session_state.df)
-                st.session_state.X_train_clust = X_train
-                st.session_state.X_test_clust = X_test
-                build_clustering_models(st.session_state.X_train_clust, st.session_state.X_test_clust, algorithm=selected_models)
+        with st.spinner("Preparing data for clustering..."):
+            X_train, X_test, _, _, _, _ = prepare_df(st.session_state.df)
+            st.session_state.X_train_clust = X_train
+            st.session_state.X_test_clust = X_test
+            build_clustering_models(st.session_state.X_train_clust, st.session_state.X_test_clust, algorithm=selected_models)  # Now selected_models is str
 
     if st.session_state.get("best_models_trained") is not None or st.session_state.get("best_clustering_model") is not None:
         st.markdown("---")
         st.success("🎉 Training Ends Successfully, Now Save the Models")
         confirm_save = st.checkbox("Confirm: Save the best model for deployment.", key="confirm_save_key")
-
         if confirm_save and st.button("💾 Save Best Model for Deployment", type="primary", use_container_width=True):
             target_encoder = st.session_state.target_encoder_saved
             feature_names_saved = st.session_state.feature_names_saved  # post-dummies
@@ -184,21 +189,16 @@ with tab4:
                         name for name in best_models
                         if "RandomForest" in name or "Linear" in name
                     ]
-                    best_name = candidates[0] if candidates else list(best_models.keys())[
-                        0]
+                    best_name = candidates[0] if candidates else list(best_models.keys())[0]
                 else:  # classification
                     priority = ["RandomForestClassifier", "LogisticRegression",
                                 "SVC", "KNeighborsClassifier", "DecisionTreeClassifier"]
-                    best_name = next((name for name in priority if name in best_models), list(
-                        best_models.keys())[0])
-            best_model = st.session_state.get(
-                "best_models_trained", best_models).get(best_name)
+                    best_name = next((name for name in priority if name in best_models), list(best_models.keys())[0])
+                best_model = best_models.get(best_name)
             if best_model is None:
                 st.error("Best model not found.")
             else:
                 st.write(f"Selected Best Model: {best_name}")
-                import os
-                import pickle
                 base_dir = os.path.dirname(os.path.abspath(__file__))
                 models_dir = os.path.join(base_dir, "models")
                 os.makedirs(models_dir, exist_ok=True)  # Ensure folder exists
@@ -210,15 +210,11 @@ with tab4:
                     st.write("File exists:", os.path.exists(save_path))
                 except Exception as e:
                     st.error(f"Model saving failed: {e}")
-                pickle.dump(feature_names_saved, open(
-                    "models/feature_names.pkl", "wb"))  # post
-                pickle.dump(original_feature_names, open(
-                    "models/original_feature_names.pkl", "wb"))  # pre
-                pickle.dump(original_dtypes, open(
-                    "models/original_dtypes.pkl", "wb"))
+                pickle.dump(feature_names_saved, open("models/feature_names.pkl", "wb"))  # post
+                pickle.dump(original_feature_names, open("models/original_feature_names.pkl", "wb"))  # pre
+                pickle.dump(original_dtypes, open("models/original_dtypes.pkl", "wb"))
                 if target_encoder is not None:
-                    pickle.dump(target_encoder, open(
-                        "models/target_encoder.pkl", "wb"))
+                    pickle.dump(target_encoder, open("models/target_encoder.pkl", "wb"))
                 for f in ["models/best_model.pkl", "models/feature_names.pkl", "models/original_feature_names.pkl", "models/original_dtypes.pkl", "models/target_encoder.pkl"]:
                     if os.path.exists(f):
                         st.success(f"✅ {f} saved successfully!")
@@ -265,25 +261,18 @@ with tab5:
                 inputs[feature] = st.number_input(f"{feature}", help=f"Enter value for {feature}.", value=0.0)
 
             if st.button("Predict", help="Send inputs to the API for prediction."):
-                try:
-                    payload = {"data": [inputs]}
-                    response = requests.post("http://127.0.0.1:8000/predict", json=payload)
-                    if response.status_code == 200:
-                        result = response.json()
-                        st.success(f"Prediction: {result['predictions']}")
-                    else:
-                        st.error(f"Error: {response.text}")
-                except requests.exceptions.ConnectionError:
+                if st.session_state.api_process is None:
                     st.error("API not running. Start the API first.")
+                else:
+                    try:
+                        payload = {"data": [inputs]}
+                        response = requests.post("http://127.0.0.1:8000/predict", json=payload)
+                        if response.status_code == 200:
+                            result = response.json()
+                            st.success(f"Prediction: {result['predictions']}")
+                        else:
+                            st.error(f"Error: {response.text}")
+                    except requests.exceptions.ConnectionError:
+                        st.error("API not running. Start the API first.")
         else:
             st.warning("Feature names not found. Save a model first.")
-
-    # Add Docker button
-    # if st.button("Build Docker Image", help="Builds a Docker image for the app (requires Docker installed)."):
-    #     try:
-    #         subprocess.run(
-    #             ["docker", "build", "-t", "ml-forge", "."], check=True)
-    #         st.success(
-    #             "Docker image built successfully! Run with: docker run -p 8501:8501 ml-forge")
-    #     except Exception as e:
-    #         st.error(f"Docker build error: {e}")
