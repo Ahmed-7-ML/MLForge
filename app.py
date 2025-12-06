@@ -121,19 +121,33 @@ with tab3:
 # Modeling Page
 # ---------------------------------
 with tab4:
-    st.header("🤖 Build and Train Models")
+    st.header("Build and Train Models")
     st.markdown("Select problem type and target, then train multiple models automatically.")
+
     if st.session_state.df is None:
-        st.warning("⚠️ Please upload and clean data before modeling.")
+        st.warning("Please upload and clean data before modeling.")
         st.stop()
 
-    problem = st.selectbox("Problem Type", ["Classification", "Regression", "Clustering"], key="problem_select", help="Choose the ML task: Classification (categories), Regression (numbers), Clustering (groups).")
-    
-    # User selects the target column
-    all_cols = st.session_state.df.columns.tolist()
-    target = st.selectbox("Select target column", all_cols, key="target_select", help="The column to predict (not needed for Clustering).") if problem != "Clustering" else None
-    
-    # More user control: Select models, search type, number of trials
+    # ------------------ اختيار نوع المشكلة ------------------
+    problem = st.selectbox(
+        "Problem Type",
+        ["Classification", "Regression", "Clustering"],
+        key="problem_select",
+        help="Choose the ML task: Classification (categories), Regression (numbers), Clustering (groups)."
+    )
+
+    # ------------------ اختيار العمود الهدف (للـ Supervised فقط) ------------------
+    if problem != "Clustering":
+        target = st.selectbox(
+            "Select target column",
+            st.session_state.df.columns.tolist(),
+            key="target_select",
+            help="The column you want to predict."
+        )
+    else:
+        target = None
+
+    # ------------------ اختيار الموديلات ------------------
     available_models_dict = {
         "Classification": ['LogisticRegression', 'RandomForestClassifier', 'XGBClassifier', 'MLPClassifier', 'KNeighborsClassifier', 'SVC', 'DecisionTreeClassifier'],
         "Regression": ['LinearRegression', 'RandomForestRegressor', 'XGBRegressor', 'MLPRegressor', 'KNeighborsRegressor', 'SVR', 'DecisionTreeRegressor'],
@@ -141,86 +155,143 @@ with tab4:
     }
 
     available_models = available_models_dict.get(problem, [])
+
     if problem == "Clustering":
-        # Changed to selectbox for single selection
-        selected_models = st.selectbox("Select Algorithm", available_models, key="selected_models_key")
+        selected_models = st.selectbox("Select Algorithm", available_models, key="algo_select")
     else:
-        selected_models = st.multiselect("Select Models to Train", available_models, default=available_models[:3], key="selected_models_key")
+        selected_models = st.multiselect(
+            "Select Models to Train",
+            available_models,
+            default=available_models[:3],
+            key="models_select"
+        )
 
-    search_type = st.selectbox("Hyperparameter Search Type", ["Random", "Grid", "Optuna"], key="search_type_key", help="Choose tuning method: Random (random search), Grid (exhaustive), Optuna (efficient Bayesian).")
-    n_trials = st.slider("Number of Trials/Iterations", 5, 50, 10, key="n_trials_key", help="Number of hyperparameter combinations to try (ignored for Grid).")
-    confirm_modeling = st.checkbox("Confirm: I understand training may take time.", help="Check to enable the start button for large actions.", key="confirm_modeling_key")
+    # ------------------ إعدادات التدريب ------------------
+    search_type = st.selectbox(
+        "Hyperparameter Search Type",
+        ["Random", "Grid", "Optuna"],
+        key="search_type",
+        help="Random & Optuna are faster. Grid is exhaustive."
+    )
 
-    if confirm_modeling and st.button("🚀 Start Modeling", type="primary", width='stretch'):
-        if problem in ['Classification', 'Regression'] and not target:
-            st.error("Please select a target column.")
+    n_trials = st.slider("Number of Trials (for Random/Optuna)", 5, 50, 15, key="n_trials")
+
+    confirm_modeling = st.checkbox(
+        "Confirm: I understand training may take time (especially with Optuna/Grid).",
+        key="confirm_train"
+    )
+
+    # ------------------ زر بدء التدريب ------------------
+    if confirm_modeling and st.button("Start Modeling", type="primary", width='stretch'):
+        if problem != "Clustering" and target is None:
+            st.error("Please select a target column for Classification/Regression.")
         else:
-            st.session_state.modeling_initiated = True
-            with st.spinner("⏳ The models are being trained...it might take a minute or two"):
-                progress_bar = st.progress(0)
-                identify_problem(st.session_state.df, problem, target, selected_models, search_type, n_trials)
-                progress_bar.progress(1.0)
-            st.session_state.training_done = True
+            with st.spinner("Training models in progress... This may take 1–3 minutes"):
+                progress = st.progress(0)
+                for i in range(100):
+                    time.sleep(0.01)
+                    progress.progress(i + 1)
 
-    if problem == 'Clustering':
+                # تشغيل التدريب
+                identify_problem(
+                    df=st.session_state.df,
+                    problem=problem,
+                    target=target,
+                    selected_models=selected_models,
+                    search_type=search_type,
+                    n_trials=n_trials
+                )
+            st.success("Model training completed successfully!")
+            st.rerun()  # عشان يظهر زر الحفظ فورًا
+
+    # ------------------ Clustering: تشغيل الموديل تلقائيًا بعد اختيار K ------------------
+    if problem == "Clustering" and st.session_state.get("training_done"):
         with st.spinner("Preparing data for clustering..."):
             X_train, X_test, _, _, _, _ = prepare_df(st.session_state.df)
-            st.session_state.X_train_clust = X_train
-            st.session_state.X_test_clust = X_test
-            build_clustering_models(st.session_state.X_train_clust, st.session_state.X_test_clust, algorithm=selected_models)  # Now selected_models is str
+            build_clustering_models(X_train, X_test, algorithm=selected_models)
 
-    if st.session_state.get("best_models_trained") is not None or st.session_state.get("best_clustering_model") is not None:
+    # ------------------ عرض زر الحفظ بعد انتهاء التدريب (Supervised أو Clustering) ------------------
+    has_supervised_models = st.session_state.get("best_models_trained") is not None
+    has_clustering_model = st.session_state.get("best_clustering_model") is not None
+
+    if has_supervised_models or has_clustering_model:
         st.markdown("---")
-        st.success("🎉 Training Ends Successfully, Now Save the Models")
-        confirm_save = st.checkbox("Confirm: Save the best model for deployment.", key="confirm_save_key")
-        if confirm_save and st.button("💾 Save Best Model for Deployment", type="primary", width='stretch'):
-            target_encoder = st.session_state.target_encoder_saved
-            feature_names_saved = st.session_state.feature_names_saved  # post-dummies
-            original_feature_names = st.session_state.original_feature_names
-            original_dtypes = st.session_state.original_dtypes
-            problem_type = st.session_state.problem_type
+        st.success("Training completed successfully! Now save the best model")
+
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.write("**Ready to deploy your model as an API**")
+        with col2:
+            if st.button("Save & Deploy Model", type="primary", width='stretch', key="save_deploy_btn"):
+                st.session_state.show_save_section = True
+
+        # ------------------ قسم الحفظ (يظهر بعد الضغط على الزر) ------------------
+        if st.session_state.get("show_save_section", False):
+            st.markdown("### Confirm Model Saving")
+
+            # جلب البيانات المطلوبة بأمان
+            target_encoder = st.session_state.get("target_encoder_saved")
+            feature_names_saved = st.session_state.get("feature_names_saved")
+            original_feature_names = st.session_state.get("original_feature_names", [])
+            original_dtypes = st.session_state.get("original_dtypes", {})
+            problem_type = st.session_state.get("problem_type", "").lower()
+
+            # تحديد أفضل موديل حسب النوع
             if problem_type == "clustering":
-                best_model = st.session_state["best_clustering_model"]
-                best_name = type(best_model).__name__
+                best_model = st.session_state.get("best_clustering_model")
+                if not best_model:
+                    st.error("Clustering model not found!")
+                    st.stop()
+                best_name = best_model.__class__.__name__
             else:
-                best_models = st.session_state.best_models_trained
+                models_dict = st.session_state.get("best_models_trained", {})
+                if not models_dict:
+                    st.error("No trained models found!")
+                    st.stop()
+
                 if problem_type == "regression":
-                    candidates = [
-                        name for name in best_models
-                        if "RandomForest" in name or "Linear" in name
-                    ]
-                    best_name = candidates[0] if candidates else list(best_models.keys())[0]
-                else:  # classification
-                    priority = ["RandomForestClassifier", "LogisticRegression",
-                                "SVC", "KNeighborsClassifier", "DecisionTreeClassifier"]
-                    best_name = next((name for name in priority if name in best_models), list(best_models.keys())[0])
-                best_model = best_models.get(best_name)
-            if best_model is None:
-                st.error("Best model not found.")
-            else:
-                st.write(f"Selected Best Model: {best_name}")
-                base_dir = os.path.dirname(os.path.abspath(__file__))
-                models_dir = os.path.join(base_dir, "models")
-                os.makedirs(models_dir, exist_ok=True)  # Ensure folder exists
-                save_path = os.path.join(models_dir, "best_model.pkl")
-                try:
-                    with open(save_path, "wb") as f:
+                    priority = ["XGBRegressor", "RandomForestRegressor", "LinearRegression"]
+                else:
+                    priority = ["XGBClassifier", "RandomForestClassifier", "LogisticRegression"]
+
+                best_name = next((n for n in priority if n in models_dict), list(models_dict.keys())[0])
+                best_model = models_dict[best_name]
+
+            st.success(f"**Selected Model:** {best_name}")
+
+            # حفظ الموديل والبيانات المهمة
+            if st.button("Confirm Save Model Now", type="primary", width='stretch'):
+                import os
+                os.makedirs("models", exist_ok=True)
+
+                with st.spinner("Saving model and metadata..."):
+                    # حفظ الموديل
+                    with open("models/best_model.pkl", "wb") as f:
                         pickle.dump(best_model, f)
-                    st.success(f"Model saved successfully at {save_path}")
-                    st.write("File exists:", os.path.exists(save_path))
-                except Exception as e:
-                    st.error(f"Model saving failed: {e}")
-                pickle.dump(feature_names_saved, open("models/feature_names.pkl", "wb"))  # post
-                pickle.dump(original_feature_names, open("models/original_feature_names.pkl", "wb"))  # pre
-                pickle.dump(original_dtypes, open("models/original_dtypes.pkl", "wb"))
-                if target_encoder is not None:
-                    pickle.dump(target_encoder, open("models/target_encoder.pkl", "wb"))
-                for f in ["models/best_model.pkl", "models/feature_names.pkl", "models/original_feature_names.pkl", "models/original_dtypes.pkl", "models/target_encoder.pkl"]:
-                    if os.path.exists(f):
-                        st.success(f"✅ {f} saved successfully!")
-                st.success(f"🚀**{best_name}**: Model Saved Successfully")
+
+                    # حفظ باقي الملفات
+                    with open("models/feature_names.pkl", "wb") as f:
+                        pickle.dump(feature_names_saved, f)
+                    with open("models/original_feature_names.pkl", "wb") as f:
+                        pickle.dump(original_feature_names, f)
+                    with open("models/original_dtypes.pkl", "wb") as f:
+                        pickle.dump(original_dtypes, f)
+                    if target_encoder is not None:
+                        with open("models/target_encoder.pkl", "wb") as f:
+                            pickle.dump(target_encoder, f)
+
+                st.success("All files saved successfully!")
                 st.balloons()
-                st.info("Go to the **Deployment** tab and click 'Run API' now!")
+                st.info("Go to the **Deployment** tab → Click **Run API**")
+                st.markdown("""
+                ### Files Saved:
+                - `best_model.pkl`
+                - `feature_names.pkl`
+                - `original_feature_names.pkl`
+                - `original_dtypes.pkl`
+                - `target_encoder.pkl` (if applicable)
+                """)
+
 
 # ---------------------------------
 # Deployment Page
