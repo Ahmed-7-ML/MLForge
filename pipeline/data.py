@@ -126,11 +126,14 @@ def handle_missing(df, log=None):
     cat_cols = df2.select_dtypes(include="object").columns
 
     missing_count_before = int(df2.isnull().sum().sum())
+    st.write(f"🔍 Total Missing Values before cleaning: {missing_count_before}")
+
     if log is not None:
         log["missing_values_before"] = missing_count_before
-    mlflow.log_param("missing_values_before", missing_count_before)
-
-    st.write(f"🔍 Total Missing Values before cleaning: {missing_count_before}")
+    mlflow.log_metric("missing_values_before", missing_count_before)
+    if missing_count_before == 0:
+        st.success("No missing values found!")
+        return df2
 
     if missing_count_before > 0:
         # Numeric Columns
@@ -164,9 +167,14 @@ def handle_missing(df, log=None):
     missing_count_after = int(df2.isnull().sum().sum())
     st.write(f"🔍 Total Missing Values after cleaning: {missing_count_after}")
 
+    if missing_count_after == 0:
+        st.success("All missing values handled successfully!")
+    else:
+        st.warning(f"Still {missing_count_after} missing values remain (probably entire columns were null)")
+    
     if log is not None:
         log["missing_values_after"] = missing_count_after
-    mlflow.log_param("missing_values_after", missing_count_after)
+    mlflow.log_metric("missing_values_after", missing_count_after)
 
     return df2
 
