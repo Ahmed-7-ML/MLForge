@@ -92,7 +92,7 @@ ML Forge/
 │   │   ├── data.py          # Data upload, cleaning, preparation
 │   │   ├── eda.py           # Exploratory analysis & visualization
 │   │   ├── modeling.py      # Model training & Model evaluation
-│   │   ├── deploy.py        # Deployment & API
+│   │   ├── api.py        # Deployment & API
 │   └──  app.py              # Streamlit Web UI
 │── requirements.txt
 │── README.md
