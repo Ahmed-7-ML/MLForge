@@ -38,7 +38,6 @@ def load_data(file_path):
         st.error(f"Error reading file: {e}")
         st.stop()
 
-    st.success(f"Data loaded successfully! Shape: {df.shape}")
     return df
 
 # ---------------------------------
