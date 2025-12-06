@@ -328,7 +328,18 @@ def evaluate_classification_models(best_models, X_test, y_test):
             st.text(classification_report(y_test, y_pred))
             st.write("**Confusion Matrix:**")
             st.dataframe(pd.DataFrame(confusion_matrix(y_test, y_pred)), use_container_width=True)
-    results_df = pd.DataFrame(results).sort_values(by='F1', ascending=False)
+
+    results_df = pd.DataFrame(results)
+    if 'F1' in results_df.columns:
+        results_df = results_df.sort_values(by='F1', ascending=False)
+    elif 'F1 Score' in results_df.columns:
+        results_df = results_df.sort_values(by='F1 Score', ascending=False)
+    elif 'F1-Score' in results_df.columns:
+        results_df = results_df.sort_values(by='F1-Score', ascending=False)
+    else:
+        results_df = results_df.sort_values(by='Accuracy', ascending=False)
+
+    st.dataframe(results_df, width='stretch')
     st.write("### Best Model Summary")
     st.dataframe(results_df, use_container_width=True)
 
