@@ -92,7 +92,7 @@ def normalize_cols(df, log=None):
             .str.replace(r'\s+', '_', regex=True))
         df[col].replace(['nan', 'none', '<na>'], np.nan, inplace=True)
 
-    if log:
+    if log is not None:
         log["normalized_columns"] = True
     return df, log
 
@@ -117,7 +117,7 @@ def handle_timestamps(df, log=None):
                 df.drop(col, axis=1, inplace=True)
                 st.success(f"Converted '{col}' → extracted year, month, day, hour, weekday")
 
-    if log:
+    if log is not None:
         log["timestamp_columns_converted"] = timestamp_cols
     return df, log
 
@@ -169,7 +169,7 @@ def handle_missing(df, log=None):
     else:
         st.warning(f"{missing_after} values still missing (full null columns?)")
 
-    if log:
+    if log is not None:
         log["missing_after"] = missing_after
     mlflow.log_metric("missing_values_after", missing_after)
 
@@ -184,7 +184,7 @@ def remove_duplicates(df, log=None):
     after = len(df)
     removed = before - after
     st.write(f"Removed **{removed:,}** duplicate rows")
-    if log:
+    if log is not None:
         log["duplicates_removed"] = removed
     mlflow.log_metric("duplicates_removed", removed)
     return df, log
@@ -211,7 +211,7 @@ def clip_outliers(df, log=None):
             total_clipped += clipped
 
     st.write(f"Total outliers clipped: **{total_clipped:,}**")
-    if log:
+    if log is not None:
         log["total_outliers_clipped"] = total_clipped
     mlflow.log_metric("total_outliers_clipped", total_clipped)
 
