@@ -181,7 +181,6 @@ with tab4:
         key="confirm_train"
     )
 
-    # ------------------ زر بدء التدريب ------------------
     if confirm_modeling and st.button("Start Modeling", type="primary", width='stretch'):
         if problem != "Clustering" and target is None:
             st.error("Please select a target column for Classification/Regression.")
@@ -192,7 +191,6 @@ with tab4:
                     time.sleep(0.01)
                     progress.progress(i + 1)
 
-                # تشغيل التدريب
                 identify_problem(
                     df=st.session_state.df,
                     problem=problem,
@@ -202,15 +200,13 @@ with tab4:
                     n_trials=n_trials
                 )
             st.success("Model training completed successfully!")
-            st.rerun()  # عشان يظهر زر الحفظ فورًا
+            st.rerun()
 
-    # ------------------ Clustering: تشغيل الموديل تلقائيًا بعد اختيار K ------------------
     if problem == "Clustering" and st.session_state.get("training_done"):
         with st.spinner("Preparing data for clustering..."):
             X_train, X_test, _, _, _, _ = prepare_df(st.session_state.df)
             build_clustering_models(X_train, X_test, algorithm=selected_models)
 
-    # ------------------ عرض زر الحفظ بعد انتهاء التدريب (Supervised أو Clustering) ------------------
     has_supervised_models = st.session_state.get("best_models_trained") is not None
     has_clustering_model = st.session_state.get("best_clustering_model") is not None
 

@@ -50,15 +50,15 @@ def clean_data(df):
         run_id = run.info.run_id
 
         with st.expander("1. Normalize Column Names & Values", expanded=True):
-            df = normalize_cols(df, log)
+            df, log = normalize_cols(df, log)
         with st.expander("2. Handle Timestamp Columns", expanded=True):
-            df = handle_timestamps(df, log)
+            df, log = handle_timestamps(df, log)
         with st.expander("3. Handle Missing Values", expanded=True):
-            df = handle_missing(df, log)  # ← تم التصليح: حفظ الرجوع
+            df, log = handle_missing(df, log)
         with st.expander("4. Remove Duplicates", expanded=True):
-            df = remove_duplicates(df, log)
+            df, log = remove_duplicates(df, log)
         with st.expander("5. Clip Outliers", expanded=True):
-            df = clip_outliers(df, log)
+            df, log = clip_outliers(df, log)
 
     return df, log, run_id
 
@@ -94,7 +94,7 @@ def normalize_cols(df, log=None):
 
     if log:
         log["normalized_columns"] = True
-    return df
+    return df, log
 
 # ---------------------------------
 # Handle Timestamp Data
@@ -119,7 +119,7 @@ def handle_timestamps(df, log=None):
 
     if log:
         log["timestamp_columns_converted"] = timestamp_cols
-    return df
+    return df, log
 
 # ---------------------------------
 # Handle Missing Values
@@ -173,7 +173,7 @@ def handle_missing(df, log=None):
         log["missing_after"] = missing_after
     mlflow.log_metric("missing_values_after", missing_after)
 
-    return df
+    return df, log
 
 # ---------------------------------
 # Remove Duplicates
@@ -187,7 +187,7 @@ def remove_duplicates(df, log=None):
     if log:
         log["duplicates_removed"] = removed
     mlflow.log_metric("duplicates_removed", removed)
-    return df
+    return df, log
 
 # ---------------------------------
 # Clip Outliers
@@ -215,4 +215,4 @@ def clip_outliers(df, log=None):
         log["total_outliers_clipped"] = total_clipped
     mlflow.log_metric("total_outliers_clipped", total_clipped)
 
-    return df
+    return df, log
