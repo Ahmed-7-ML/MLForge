@@ -236,7 +236,7 @@ def perform_eda(df):
 
                         Return only the JSON array. Nothing else.
                         """
-                        model = genai.GenerativeModel("gemini-2.0-flash")
+                        model = genai.GenerativeModel("gemini-2.5-flash")
                         resp = model.generate_content(prompt)
                         json_text = re.search(r'\[[\s\S]*\]', resp.text, re.DOTALL)
                         if not json_text:
