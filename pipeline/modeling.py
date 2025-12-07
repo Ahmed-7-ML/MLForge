@@ -414,47 +414,38 @@
 
 import time
 import io
-import os
 import pickle
 import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-# Modeling Libraries
-from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.svm import SVC, SVR
-from sklearn.neural_network import MLPRegressor, MLPClassifier
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, GridSearchCV, cross_val_score
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import (
-    accuracy_score, f1_score, confusion_matrix, classification_report,
-    mean_absolute_error as mae, mean_absolute_percentage_error as mape,
-    mean_squared_error as mse, r2_score as r2, silhouette_score
-)
+from sklearn.metrics import (accuracy_score, f1_score, classification_report,
+                             mean_absolute_error as mae, mean_absolute_percentage_error as mape,
+                             mean_squared_error as mse, r2_score as r2, confusion_matrix)
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.svm import SVC, SVR
+from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.cluster import KMeans, DBSCAN
-# Optional libs
+
+# Optional libraries
 try:
-    from xgboost import XGBRegressor, XGBClassifier
+    from xgboost import XGBClassifier, XGBRegressor
     XGB_AVAILABLE = True
 except Exception:
     XGB_AVAILABLE = False
-# Imbalanced Data Handling
+
 try:
     from imblearn.over_sampling import SMOTE
     IMB_AVAILABLE = True
 except Exception:
     IMB_AVAILABLE = False
-# Optuna
-try:
-    import optuna
-    OPTUNA_AVAILABLE = True
-except Exception:
-    OPTUNA_AVAILABLE = False
 
-# --------------------- Session state init ---------------------
+# ------------------ Session State ------------------
 for key, default in {
     'best_models_trained': None,
     'target_encoder_saved': None,
@@ -462,41 +453,31 @@ for key, default in {
     'original_feature_names': None,
     'original_dtypes': None,
     'problem_type': None,
-    'training_done': False,
-    'best_clustering_model': None,
-    'best_clustering_score': None
+    'training_done': False
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
 
-# --------------------- Data preparation ---------------------
-
-
+# ------------------ Helper Functions ------------------
 def prepare_df(df, target=None):
     df = df.copy()
     y = None
     if target is not None:
-        if target not in df.columns:
-            raise ValueError("Target column not in DataFrame")
         X = df.drop(columns=[target])
         y = df[target]
     else:
         X = df
-
     original_feature_names = X.columns.tolist()
     original_dtypes = X.dtypes.to_dict()
     st.session_state.original_feature_names = original_feature_names
     st.session_state.original_dtypes = original_dtypes
-
     target_encoder = None
     if target is not None and (y.dtype == 'object' or y.dtype.name == 'category'):
         target_encoder = LabelEncoder()
         y = target_encoder.fit_transform(y.astype(str))
     st.session_state.target_encoder_saved = target_encoder
-
     X = pd.get_dummies(X, drop_first=True)
     st.session_state.feature_names_saved = X.columns.tolist()
-
     if target is not None:
         stratify_y = y if target_encoder is not None else None
         X_train, X_test, y_train, y_test = train_test_split(
@@ -507,20 +488,12 @@ def prepare_df(df, target=None):
         X_train, X_test = train_test_split(X, test_size=0.3, random_state=42)
         return X_train, X_test, None, None, None, original_feature_names
 
-# --------------------- Helper to store model info ---------------------
-
 
 def _store_model(best_models, name, model_obj, best_params=None, cv_score=None):
-    # store model object, params and cv score
-    best_models[name] = {
-        'model': model_obj,
-        'best_params': best_params if best_params is not None else {},
-        'cv_score': cv_score
-    }
+    best_models[name] = {'model': model_obj,
+                         'best_params': best_params or {}, 'cv_score': cv_score}
 
-# --------------------- Regression builders ---------------------
-
-
+# ------------------ Model Builders ------------------
 def build_regression_models(X_train, y_train, selected_models=None, search_type='Random', n_trials=10):
     best_models = {}
     model_classes = {
@@ -532,7 +505,6 @@ def build_regression_models(X_train, y_train, selected_models=None, search_type=
         'SVR': SVR,
         'DecisionTreeRegressor': DecisionTreeRegressor
     }
-
     params = {
         'RandomForestRegressor': {'n_estimators': [100, 200], 'max_depth': [10, None]},
         'XGBRegressor': {'n_estimators': [100, 200], 'max_depth': [6, 10], 'learning_rate': [0.01, 0.1]} if XGB_AVAILABLE else {},
@@ -541,49 +513,33 @@ def build_regression_models(X_train, y_train, selected_models=None, search_type=
         'SVR': {'C': [0.1, 1, 10], 'kernel': ['rbf', 'linear']},
         'DecisionTreeRegressor': {'max_depth': [10, None], 'min_samples_split': [2, 5]}
     }
-
     if selected_models is None:
         selected_models = [
             k for k, v in model_classes.items() if v is not None]
-
     with st.spinner("Training Regression Models..."):
         for name in selected_models:
             if name not in model_classes or model_classes[name] is None:
-                st.warning(f"Skipping {name} (not available)")
+                st.warning(f"Skipping {name}")
                 continue
-            st.info(f"Training {name}")
             model_class = model_classes[name]
             common_params = {
                 'random_state': 42} if 'random_state' in model_class.__init__.__code__.co_varnames else {}
             try:
                 if name == 'LinearRegression':
                     model = model_class(**common_params).fit(X_train, y_train)
-                    _store_model(best_models, name, model,
-                                 best_params={}, cv_score=None)
+                    _store_model(best_models, name, model)
                 else:
-                    if search_type == 'Grid':
-                        search = GridSearchCV(model_class(
-                            **common_params), params.get(name, {}), cv=5, scoring='r2', n_jobs=-1)
-                        search.fit(X_train, y_train)
-                        _store_model(best_models, name, search.best_estimator_,
-                                     best_params=search.best_params_, cv_score=search.best_score_)
-                        st.write(
-                            f"{name} best CV R2: {search.best_score_:.3f}")
-                    else:
-                        search = RandomizedSearchCV(model_class(**common_params), params.get(
-                            name, {}), n_iter=n_trials, cv=5, scoring='r2', n_jobs=-1, random_state=42)
-                        search.fit(X_train, y_train)
-                        _store_model(best_models, name, search.best_estimator_,
-                                     best_params=search.best_params_, cv_score=search.best_score_)
-                        st.write(
-                            f"{name} best CV R2: {search.best_score_:.3f}")
+                    search = RandomizedSearchCV(model_class(**common_params), params.get(
+                        name, {}), n_iter=n_trials, cv=5, scoring='r2', n_jobs=-1, random_state=42)
+                    search.fit(X_train, y_train)
+                    _store_model(best_models, name, search.best_estimator_,
+                                 search.best_params_, search.best_score_)
+                    st.write(f"{name} Best CV R2: {search.best_score_:.3f}")
             except Exception as e:
                 st.error(f"{name} failed: {e}")
-
     st.session_state.best_models_trained = best_models
+    st.session_state.training_done = True
     return best_models
-
-# --------------------- Classification builders ---------------------
 
 
 def build_classification_models(X_train, y_train, selected_models=None, search_type='Random', n_trials=10):
@@ -597,7 +553,6 @@ def build_classification_models(X_train, y_train, selected_models=None, search_t
         'SVC': SVC,
         'DecisionTreeClassifier': DecisionTreeClassifier
     }
-
     params = {
         'LogisticRegression': {'C': [0.1, 1, 10]},
         'RandomForestClassifier': {'n_estimators': [100, 200], 'max_depth': [10, None]},
@@ -607,17 +562,14 @@ def build_classification_models(X_train, y_train, selected_models=None, search_t
         'SVC': {'C': [0.1, 1, 10], 'kernel': ['rbf', 'linear']},
         'DecisionTreeClassifier': {'max_depth': [10, None], 'min_samples_split': [2, 5]}
     }
-
     if selected_models is None:
         selected_models = [
             k for k, v in model_classes.items() if v is not None]
-
     with st.spinner("Training Classification Models..."):
         for name in selected_models:
             if name not in model_classes or model_classes[name] is None:
-                st.warning(f"Skipping {name} (not available)")
+                st.warning(f"Skipping {name}")
                 continue
-            st.info(f"Training {name}")
             model_class = model_classes[name]
             common_params = {
                 'random_state': 42} if 'random_state' in model_class.__init__.__code__.co_varnames else {}
@@ -626,237 +578,74 @@ def build_classification_models(X_train, y_train, selected_models=None, search_t
             if name == 'LogisticRegression':
                 common_params['max_iter'] = 1000
             try:
-                if search_type == 'Grid':
-                    search = GridSearchCV(model_class(
-                        **common_params), params.get(name, {}), cv=5, scoring='f1_weighted', n_jobs=-1)
-                    search.fit(X_train, y_train)
-                    _store_model(best_models, name, search.best_estimator_,
-                                 best_params=search.best_params_, cv_score=search.best_score_)
-                    st.write(f"{name} best CV F1: {search.best_score_:.3f}")
-                else:
-                    search = RandomizedSearchCV(model_class(**common_params), params.get(
-                        name, {}), n_iter=n_trials, cv=5, scoring='f1_weighted', n_jobs=-1, random_state=42)
-                    search.fit(X_train, y_train)
-                    _store_model(best_models, name, search.best_estimator_,
-                                 best_params=search.best_params_, cv_score=search.best_score_)
-                    st.write(f"{name} best CV F1: {search.best_score_:.3f}")
+                search = RandomizedSearchCV(model_class(**common_params), params.get(
+                    name, {}), n_iter=n_trials, cv=5, scoring='f1_weighted', n_jobs=-1, random_state=42)
+                search.fit(X_train, y_train)
+                _store_model(best_models, name, search.best_estimator_,
+                             search.best_params_, search.best_score_)
+                st.write(f"{name} Best CV F1: {search.best_score_:.3f}")
             except Exception as e:
                 st.error(f"{name} failed: {e}")
-
     st.session_state.best_models_trained = best_models
+    st.session_state.training_done = True
     return best_models
 
-# --------------------- Evaluation ---------------------
-
-
-def evaluate_regression_models(best_models, X_test, y_test):
-    st.header("Regression Models Evaluation")
-    results = []
-    for name, info in best_models.items():
-        model = info['model']
-        with st.expander(f"{name}"):
-            y_pred = model.predict(X_test)
-            cv_scores = cross_val_score(
-                model, X_test, y_test, cv=5, scoring='r2')
-            st.write(
-                f"Cross-Val R²: {cv_scores.mean():.3f} ± {cv_scores.std():.3f}")
-            r2_test = r2(y_test, y_pred)
-            results.append({'Model': name, 'R2_Test': r2_test,
-                           'CV_R2': cv_scores.mean()})
-            st.write(f"R² (Test): {r2_test:.3f}")
-            st.write(f"MAE: {mae(y_test, y_pred):.3f}")
-            st.write(f"MAPE: {mape(y_test, y_pred):.3f}")
-            st.write(f"MSE: {mse(y_test, y_pred):.3f}")
-            st.write(f"RMSE: {np.sqrt(mse(y_test, y_pred)):.3f}")
-
-    results_df = pd.DataFrame(results).sort_values(
-        by='R2_Test', ascending=False)
-    st.dataframe(results_df)
-    if not results_df.empty:
-        best = results_df.iloc[0]['Model']
-        st.success(
-            f"Best Model: {best} - R² Test: {results_df.iloc[0]['R2_Test']:.3f}")
-        _show_best_model_info(best_models, best)
-
-
-def evaluate_classification_models(best_models, X_test, y_test):
-    st.header("Classification Models Evaluation")
-    results = []
-    for name, info in best_models.items():
-        model = info['model']
-        with st.expander(f"{name}"):
-            y_pred = model.predict(X_test)
-            cv_scores = cross_val_score(
-                model, X_test, y_test, cv=5, scoring='f1_weighted')
-            st.write(
-                f"Cross-Val F1: {cv_scores.mean():.3f} ± {cv_scores.std():.3f}")
-            acc = accuracy_score(y_test, y_pred)
-            f1 = f1_score(y_test, y_pred, average='weighted')
-            results.append({'Model': name, 'Accuracy': acc,
-                           'F1': f1, 'CV_F1': cv_scores.mean()})
-            st.write(f"Accuracy: {acc:.3f} | F1: {f1:.3f}")
-            st.text(classification_report(y_test, y_pred))
-            st.write("Confusion Matrix:")
-            st.dataframe(pd.DataFrame(confusion_matrix(y_test, y_pred)))
-
-    results_df = pd.DataFrame(results).sort_values(by='F1', ascending=False)
-    st.dataframe(results_df)
-    if not results_df.empty:
-        best = results_df.iloc[0]['Model']
-        st.success(f"Best Model: {best} - F1: {results_df.iloc[0]['F1']:.3f}")
-        _show_best_model_info(best_models, best)
-
-# --------------------- Best model summary + download + hyperparam viz ---------------------
-
-
+# ------------------ Evaluation & Display ------------------
 def _show_best_model_info(best_models, best_name):
     info = best_models.get(best_name)
     if not info:
         st.error("Best model info not found")
         return
-    st.subheader("Best Model Details")
-    st.write(f"Model: **{best_name}**")
-    st.write("### Best Parameters")
+    st.subheader(f"Model: {best_name}")
+    # Parameters
     bp = info.get('best_params', {})
     if bp:
+        st.write("### Best Parameters")
         st.json(bp)
-        # Show params as dataframe
-        params_df = pd.DataFrame([bp])
-        st.dataframe(params_df.T.rename(columns={0: 'value'}))
-        # Visualize numeric hyperparams
-        numeric_params = {k: v for k, v in bp.items() if isinstance(
-            v, (int, float, np.integer, np.floating))}
+        params_df = pd.DataFrame([bp]).T.rename(columns={0: 'Value'})
+        st.dataframe(params_df)
+        # Numeric Hyperparams
+        numeric_params = {k: v for k,
+                          v in bp.items() if isinstance(v, (int, float))}
         if numeric_params:
-            dfp = pd.DataFrame.from_dict(numeric_params, orient='index', columns=[
-                                         'value']).reset_index().rename(columns={'index': 'param'})
+            dfp = pd.DataFrame(list(numeric_params.items()),
+                               columns=['param', 'value'])
             fig = px.bar(dfp, x='param', y='value',
                          title='Numeric Hyperparameters')
             st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info(
-            "No hyperparameters recorded (model may be default or LinearRegression)")
-
+    # Model object
     st.write("### Model Object")
     st.write(info.get('model'))
-
-    # Provide download button
+    # Download
     buf = io.BytesIO()
     pickle.dump(info.get('model'), buf)
     buf.seek(0)
-    st.download_button("Download Best Model (pickle)", data=buf,
+    st.download_button("Download Model", data=buf,
                        file_name=f"best_model_{best_name}.pkl")
 
-# --------------------- Clustering (Elbow + Silhouette) ---------------------
-
-
-@st.cache_data
-def compute_elbow(X, min_k=2, max_k=10):
-    inertias = []
-    K = list(range(min_k, max_k + 1))
-    for k in K:
-        kmeans = KMeans(n_clusters=k, random_state=42)
-        kmeans.fit(X)
-        inertias.append(kmeans.inertia_)
-    return K, inertias
-
-
-def build_clustering_models(X_train, X_test, algorithm='KMeans'):
-    st.subheader("Unsupervised Clustering")
-    X = pd.concat([X_train, X_test])
-    best_model = None
-    best_score = -1
-
-    if algorithm == 'KMeans':
-        st.write("### KMeans Clustering")
-        K, inertias = compute_elbow(X)
-        df_elbow = pd.DataFrame({'k': K, 'inertia': inertias})
-        fig = px.line(df_elbow, x='k', y='inertia',
-                      markers=True, title='Elbow Method')
-        st.plotly_chart(fig, use_container_width=True)
-        n_clusters = st.slider("Select number of clusters",
-                               min_value=2, max_value=10, value=3)
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-        labels = kmeans.fit_predict(X)
-        score = silhouette_score(X, labels) if n_clusters > 1 else None
-        st.write(
-            f"Silhouette Score: {score:.3f}" if score is not None else "N/A")
-        st.write("Cluster centers shape:", kmeans.cluster_centers_.shape)
-        best_model = kmeans
-        best_score = score
-
-    elif algorithm == 'DBSCAN':
-        st.write("### DBSCAN")
-        eps = st.slider("eps", 0.1, 5.0, 0.5)
-        min_samples = st.slider("min_samples", 3, 20, 5)
-        db = DBSCAN(eps=eps, min_samples=min_samples)
-        labels = db.fit_predict(X)
-        if len(set(labels)) <= 1:
-            st.error("DBSCAN failed to form clusters — adjust parameters.")
-            return None
-        score = silhouette_score(X, labels)
-        st.success(f"Silhouette Score (DBSCAN): {score:.4f}")
-        st.write(f"Clusters found: {len(set(labels))}")
-        best_model = db
-        best_score = score
-
-    st.session_state.best_clustering_model = best_model
-    st.session_state.best_clustering_score = best_score
-    st.session_state.training_done = True
-    return best_model
-
-# --------------------- Orchestration: identify_problem ---------------------
+# ------------------ Identify Problem ------------------
 
 
 def identify_problem(df, problem, target=None, selected_models=None, search_type='Random', n_trials=10):
     st.session_state.problem_type = problem.lower()
-    if problem.lower() == 'clustering':
-        X_train, X_test, _, _, _, _ = prepare_df(df)
-        build_clustering_models(X_train, X_test, algorithm=selected_models)
-        return
-
-    X_train, X_test, y_train, y_test, target_encoder, original_feature_names = prepare_df(
+    X_train, X_test, y_train, y_test, target_encoder, _ = prepare_df(
         df, target)
-    st.write(f"Preparing data for {problem}")
-    st.write(f"Train shape: {X_train.shape} | Test shape: {X_test.shape}")
-
     if problem.lower() == 'regression':
         best_models = build_regression_models(
             X_train, y_train, selected_models, search_type, n_trials)
-        evaluate_regression_models(best_models, X_test, y_test)
     elif problem.lower() == 'classification':
         if IMB_AVAILABLE:
             unique, counts = np.unique(y_train, return_counts=True)
-            if len(counts) > 1:
-                imbalance_ratio = counts.max() / counts.min()
-                if imbalance_ratio > 2.0:
-                    st.warning(
-                        f"Detected imbalance ratio {imbalance_ratio:.2f} — applying SMOTE")
-                    smote = SMOTE(random_state=42)
-                    X_train, y_train = smote.fit_resample(X_train, y_train)
-                    st.success("SMOTE applied")
+            if len(counts) > 1 and counts.max()/counts.min() > 2.0:
+                st.warning("Imbalanced data detected: applying SMOTE")
+                smote = SMOTE(random_state=42)
+                X_train, y_train = smote.fit_resample(X_train, y_train)
+                st.success("SMOTE applied")
         best_models = build_classification_models(
             X_train, y_train, selected_models, search_type, n_trials)
-        evaluate_classification_models(best_models, X_test, y_test)
-
     st.session_state.best_models_trained = best_models
     st.session_state.training_done = True
+    # Display best models info
+    for model_name in best_models:
+        _show_best_model_info(best_models, model_name)
 
-# --------------------- Small helper to show all trained models summary ---------------------
-
-
-def show_trained_summary():
-    bm = st.session_state.get('best_models_trained')
-    if not bm:
-        st.info('No trained models yet')
-        return
-    st.write('### Trained Models Summary')
-    rows = []
-    for name, info in bm.items():
-        rows.append({'Model': name, 'CV_Score': info.get(
-            'cv_score'), 'Has_Params': bool(info.get('best_params'))})
-    st.dataframe(pd.DataFrame(rows))
-
-# --------------------- End of module ---------------------
-
-# NOTE: This module exposes functions used by the Streamlit app UI.
-# Use `identify_problem(...)` from your app to train models and the UI will display best params, metrics, elbow method, and allow downloading the best model.
