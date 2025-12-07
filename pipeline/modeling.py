@@ -319,6 +319,8 @@ def evaluate_regression_models(best_models, X_test, y_test):
     else:
         results_df = results_df.sort_values(by='RMSE', ascending=True)
 
+    st.session_state.model_evaluation_results = results_df
+    st.session_state.selected_best_model_name = results_df.iloc[0]['Model']
     st.dataframe(results_df, width='stretch')
     st.write("### Best Model Summary")
     st.dataframe(results_df, width='stretch')
@@ -350,6 +352,8 @@ def evaluate_classification_models(best_models, X_test, y_test):
     else:
         results_df = results_df.sort_values(by='Accuracy', ascending=False)
 
+    st.session_state.model_evaluation_results = results_df
+    st.session_state.selected_best_model_name = results_df.iloc[0]['Model']
     st.dataframe(results_df, width='stretch')
     st.write("### Best Model Summary")
     st.dataframe(results_df, width='stretch')
