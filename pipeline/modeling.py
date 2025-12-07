@@ -406,8 +406,8 @@ def build_clustering_models(X_train, X_test, algorithm):
 
                 st.success(f"KMeans trained! Silhouette Score: {score:.4f}")
                 st.balloons()
-        best_model = kmeans
-        best_score = score
+        # best_model = kmeans
+        # best_score = score
 
     elif algorithm == 'DBSCAN':
         st.write("### DBSCAN Clustering")
@@ -436,9 +436,9 @@ def build_clustering_models(X_train, X_test, algorithm):
                     st.success(
                         f"DBSCAN Found {n_clusters} clusters & {n_noise} noise points")
                     st.write(f"Silhouette Score: {score:.4f}")
-        best_model = db
-        best_score = score
+        # best_model = db
+        # best_score = score
     # Save the model inside session
-    st.session_state["best_clustering_model"] = best_model
-    st.session_state["best_clustering_score"] = best_score
+    # st.session_state["best_clustering_model"] = best_model
+    # st.session_state["best_clustering_score"] = best_score
     return best_model
