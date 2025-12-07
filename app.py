@@ -7,7 +7,7 @@
 import streamlit as st
 from pipeline.data import load_data, clean_data
 from pipeline.eda import perform_eda
-from pipeline.modeling import identify_problem, show_trained_summary
+from pipeline.modeling import identify_problem, build_clustering_models
 import subprocess
 import time
 import os
