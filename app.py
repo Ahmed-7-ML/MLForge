@@ -7,7 +7,7 @@
 import streamlit as st
 from pipeline.data import load_data, clean_data
 from pipeline.eda import perform_eda
-from pipeline.modeling import identify_problem, prepare_df, build_clustering_models
+from pipeline.modeling import identify_problem, show_trained_summary, build_clustering_models
 import subprocess
 import time
 import os
@@ -287,7 +287,6 @@ with tab4:
                 - `original_dtypes.pkl`
                 - `target_encoder.pkl` (if applicable)
                 """)
-
 
 # ---------------------------------
 # Deployment Page
