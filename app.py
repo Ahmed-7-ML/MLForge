@@ -288,8 +288,7 @@ with tab3:
 #                 - `target_encoder.pkl` (if applicable)
 #                 """)
 # =============================================
-# Modeling Tab - النسخة النهائية المثالية والمضمونة
-# =============================================
+
 with tab4:
     st.header("Build and Train Models")
     st.markdown(

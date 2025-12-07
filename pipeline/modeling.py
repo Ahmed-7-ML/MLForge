@@ -359,7 +359,7 @@ def evaluate_classification_models(best_models, X_test, y_test):
     st.dataframe(results_df, width='stretch')
 
 # ==================== CLUSTERING WITH ELBOW METHOD ====================
-@st.cache_data
+# @st.cache_data
 def compute_elbow(X, min_k=2, max_k=10):
     inertias = []
     K = range(min_k, max_k + 1)
@@ -371,7 +371,7 @@ def compute_elbow(X, min_k=2, max_k=10):
 
 def build_clustering_models(X_train, X_test, algorithm):
     st.subheader("Unsupervised Clustering")
-    X = pd.concat([X_train, X_test])
+    X = pd.concat([X_train, X_test], ignore_index=True)
     best_model = None
     best_score = -1
     if algorithm == 'KMeans':
