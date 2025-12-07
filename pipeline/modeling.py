@@ -371,43 +371,71 @@ def compute_elbow(X, min_k=2, max_k=10):
 
 def build_clustering_models(X_train, X_test, algorithm):
     st.subheader("Unsupervised Clustering")
-    X = pd.concat([X_train, X_test], ignore_index=True)
+    X = pd.concat([X_train, X_test], axis=0).reset_index(drop=True)
     best_model = None
     best_score = -1
     if algorithm == 'KMeans':
         st.write("### 📌 Using KMeans Clustering")
-
-        # Elbow Method (cached)
-        K, inertias = compute_elbow(X)
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=list(K), y=inertias, mode='lines+markers'))
-        fig.update_layout(title="Elbow Method for Optimal K",xaxis_title="Number of Clusters", yaxis_title="Inertia")
-        st.plotly_chart(fig, width='stretch')
+        if "elbow_fig" not in st.session_state:
+            with st.spinner("Computing Elbow Method..."):
+                K, inertias = compute_elbow(X)
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=list(K), y=inertias,
+                                        mode='lines+markers', name='Inertia'))
+                fig.update_layout(
+                    title="Elbow Method - Optimal Number of Clusters",
+                    xaxis_title="Number of Clusters (K)",
+                    yaxis_title="Inertia",
+                    template="plotly_white",
+                    height=500
+                )
+                st.session_state.elbow_fig = fig
+        st.plotly_chart(st.session_state.elbow_fig, width='stretch')
 
         # User selects K
         n_clusters = st.slider("Select number of clusters", 2, 10, 3)
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-        labels = kmeans.fit_predict(X)
-        score = silhouette_score(X, labels) if n_clusters > 1 else None
-        st.write(f"**Silhouette Score:** `{score:.3f}`" if score else "N/A")
-        st.write("Cluster centers shape:", kmeans.cluster_centers_.shape)
+        if st.button("Train KMeans Model", type="primary", key="train_kmeans"):
+            with st.spinner(f"Training KMeans with K={n_clusters}..."):
+                kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+                labels = kmeans.fit_predict(X)
+                score = silhouette_score(X, labels) if n_clusters > 1 else 0
+
+                st.session_state.best_clustering_model = kmeans
+                st.session_state.best_clustering_score = score
+                st.session_state.clustering_labels = labels
+
+                st.success(f"KMeans trained! Silhouette Score: {score:.4f}")
+                st.balloons()
         best_model = kmeans
         best_score = score
 
     elif algorithm == 'DBSCAN':
-        st.write("### 📌 Using DBSCAN")
-        eps = st.slider("eps (neighborhood radius)", 0.1, 5.0, 0.5)
-        min_samples = st.slider("min_samples", 3, 20, 5)
-        db = DBSCAN(eps=eps, min_samples=min_samples)
-        labels = db.fit_predict(X)
-        
-        # If all points become -1 -> invalid
-        if len(set(labels)) <= 1:
-            st.error("⚠️ DBSCAN failed to form clusters — adjust parameters.")
-            return None
-        score = silhouette_score(X, labels)
-        st.success(f"**Silhouette Score (DBSCAN):** `{score:.4f}`")
-        st.write(f"Clusters found: {len(set(labels))}")
+        st.write("### DBSCAN Clustering")
+        col1, col2 = st.columns(2)
+        with col1:
+            eps = st.slider("EPS (radius)", 0.1, 10.0, 0.5, step=0.1)
+        with col2:
+            min_samples = st.slider("Min Samples", 2, 20, 5)
+
+        if st.button("Run DBSCAN", type="primary"):
+            with st.spinner("Running DBSCAN..."):
+                db = DBSCAN = DBSCAN(eps=eps, min_samples=min_samples)
+                labels = db.fit_predict(X)
+
+                n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+                n_noise = list(labels).count(-1)
+
+                if n_clusters == 0:
+                    st.error("No clusters found! Try different parameters.")
+                else:
+                    score = silhouette_score(
+                        X, labels) if n_clusters > 1 else -1
+                    st.session_state.best_clustering_model = db
+                    st.session_state.best_clustering_score = score
+
+                    st.success(
+                        f"DBSCAN Found {n_clusters} clusters & {n_noise} noise points")
+                    st.write(f"Silhouette Score: {score:.4f}")
         best_model = db
         best_score = score
     # Save the model inside session

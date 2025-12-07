@@ -399,13 +399,12 @@ with tab4:
                 st.balloons()
 
             except Exception as e:
-                status.update(label="Training failed!",
-                              state="error", expanded=True)
+                status.update(label="Training failed!",state="error", expanded=True)
                 st.exception(e)
                 st.stop()
 
         # إجبار تحديث الصفحة مرة واحدة فقط بعد الانتهاء لعرض النتايج
-        st.rerun()
+        # st.rerun()
 
     # ==================================================================
     # عرض النتايج بعد التدريب (هنا بيظهر كل حاجة بوضوح وما بيختفيش)
