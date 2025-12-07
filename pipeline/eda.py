@@ -277,7 +277,7 @@ def perform_eda(df):
 
     # ==================== TAB 4: Chatbot ====================
     with tab4:
-        st.write("### Chat with Your Data")
+        st.write("### Chat with Your Data Assistant and ML Advisor")
         if "chat_history" not in st.session_state:
             st.session_state.chat_history = []
 
