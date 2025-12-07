@@ -138,7 +138,9 @@ def handle_missing(df, log=None):
 
     if missing_before == 0:
         st.success("No missing values!")
-        return df
+        if log is not None:
+            log["missing_after"] = missing_before
+        return df, log
 
     # Numeric
     for col in num_cols:
