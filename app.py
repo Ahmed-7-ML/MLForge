@@ -4,6 +4,10 @@
 # st.sidebar.title("App Journey")
 # page = st.sidebar.radio("Go To", ["🏠 Home", "🧹 Data Cleaning", "📊 EDA", "🤖 Modeling", "🚀 Deployment"])
 
+import pandas as pd
+import numpy as np
+import plotly.express as px
+from sklearn.decomposition import PCA
 import streamlit as st
 from pipeline.data import load_data, clean_data
 from pipeline.eda import perform_eda
@@ -14,6 +18,8 @@ import os
 import io
 import pickle
 import sys
+import zipfile
+from io import BytesIO
 import requests  # Added for API calls in inference UI
 
 # ---------------------------------
