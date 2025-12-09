@@ -26,7 +26,8 @@ if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
 
 # Get API key: Prioritize Streamlit secrets for cloud deployment, fallback to env for local
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") if 'secrets' in dir(st) else os.getenv('GEMINI_API_KEY')
+
+GEMINI_API_KEY =  st.secrets.get("GEMINI_API_KEY") if 'secrets' in dir(st) else os.getenv('GEMINI_API_KEY')
 
 # Default to fast model
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')

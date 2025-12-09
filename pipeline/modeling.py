@@ -321,9 +321,9 @@ def evaluate_regression_models(best_models, X_test, y_test):
 
     st.session_state.model_evaluation_results = results_df
     st.session_state.selected_best_model_name = results_df.iloc[0]['Model']
-    st.dataframe(results_df, width='stretch')
+    st.dataframe(results_df, use_container_width=True)
     st.write("### Best Model Summary")
-    st.dataframe(results_df, width='stretch')
+    st.dataframe(results_df, use_container_width=True)
 
 def evaluate_classification_models(best_models, X_test, y_test):
     st.header("Classification Models Evaluation")
@@ -340,9 +340,10 @@ def evaluate_classification_models(best_models, X_test, y_test):
             st.write(f"**Accuracy:** `{acc:.3f}` | **F1-Score:** `{f1:.3f}`")
             st.text(classification_report(y_test, y_pred))
             st.write("**Confusion Matrix:**")
-            st.dataframe(pd.DataFrame(confusion_matrix(y_test, y_pred)), width='stretch')
+            st.dataframe(pd.DataFrame(confusion_matrix(y_test, y_pred)), use_container_width=True)
 
     results_df = pd.DataFrame(results)
+    
     if 'F1' in results_df.columns:
         results_df = results_df.sort_values(by='F1', ascending=False)
     elif 'F1 Score' in results_df.columns:
@@ -356,7 +357,7 @@ def evaluate_classification_models(best_models, X_test, y_test):
     st.session_state.selected_best_model_name = results_df.iloc[0]['Model']
     st.dataframe(results_df, width='stretch')
     st.write("### Best Model Summary")
-    st.dataframe(results_df, width='stretch')
+    st.dataframe(results_df, use_container_width=True)
 
 # ==================== CLUSTERING WITH ELBOW METHOD ====================
 # @st.cache_data
@@ -390,7 +391,7 @@ def build_clustering_models(X_train, X_test, algorithm):
                     height=500
                 )
                 st.session_state.elbow_fig = fig
-        st.plotly_chart(st.session_state.elbow_fig, width='stretch')
+        st.plotly_chart(st.session_state.elbow_fig, use_container_width=True)
 
         # User selects K
         n_clusters = st.slider("Select number of clusters", 2, 10, 3)
