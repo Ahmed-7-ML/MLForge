@@ -280,8 +280,17 @@ def build_classification_models(X_train, y_train, selected_models=None, search_t
                     best_models[name] = search.best_estimator_
                     st.write(f"Best F1 (CV): {search.best_score_:.3f}")
                 else:  # Random
-                    search = RandomizedSearchCV(model_class(**common_params), params.get(
-                        name, {}), n_iter=n_trials, cv=5, scoring='f1_weighted', n_jobs=-1, random_state=42)
+                    n_iter = min(n_trials, len(params))
+                    search = RandomizedSearchCV(
+                        estimator=model_class(**common_params),
+                        param_distributions=params.get(name, {}),
+                        n_iter=n_iter,
+                        cv=5,
+                        scoring='f1_weighted',
+                        n_jobs=-1,
+                        random_state=42
+                        )
+                    # search = RandomizedSearchCV(model_class(**common_params), params.get(name, {}), n_iter=n_trials, cv=5, scoring='f1_weighted', n_jobs=-1, random_state=42)
                     search.fit(X_train, y_train)
                     best_models[name] = search.best_estimator_
                     st.write(f"Best F1 (CV): {search.best_score_:.3f}")

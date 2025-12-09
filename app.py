@@ -199,7 +199,6 @@ with tab4:
 
         else:
             # Clustering
-            # Import from your modeling.py
             from pipeline.modeling import prepare_df, compute_elbow, KMeans, DBSCAN, silhouette_score
             algorithm = st.selectbox(
                 "Select Clustering Algorithm", ["KMeans", "DBSCAN"])
