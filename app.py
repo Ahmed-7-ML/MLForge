@@ -292,7 +292,6 @@ with tab4:
 with tab5:
     st.header("Deploy Model as REST API")
 
-    # تحقق من وجود النموذج
     if not os.path.exists("models/best_model.pkl"):
         st.warning(
             "No trained model found. Please complete the Modeling step first.")
@@ -316,11 +315,9 @@ with tab5:
                 st.session_state.api_process = None
                 st.success("API Stopped Successfully")
 
-        # اختبار التنبؤ (مع حماية من الأخطاء)
         st.subheader("Test Model Inference")
         st.markdown("Enter feature values below and get predictions instantly.")
 
-        # تحقق من وجود المتغيّرات المطلوبة
         has_original_features = "original_feature_names" in st.session_state and st.session_state.original_feature_names
         has_cleaned_df = "cleaned_df" in st.session_state and st.session_state.cleaned_df is not None
         has_feature_names_saved = "feature_names_saved" in st.session_state and st.session_state.feature_names_saved
@@ -372,7 +369,6 @@ with tab5:
             st.info(
                 "Model inference not available yet. Train and save a model first to enable prediction.")
 
-        # تحميل الـ API كـ ZIP
         st.markdown("---")
         st.subheader("Download Complete API Package")
         st.markdown(
@@ -433,54 +429,3 @@ Set command: uvicorn api:app --host 0.0.0.0 --port $PORT
             )
             st.success("Package ready! Click above to download")
             st.balloons()
-
-    st.subheader("🚀 Deploy Trained Model as REST API")
-    st.markdown("Deploy your model as an API and test predictions directly here.")
-    if not os.path.exists("models/best_model.pkl"):
-        st.warning("⚠️ No trained model found. Please complete Modeling step first.")
-    else:
-        if st.button("🚀 Run API", help="Starts the FastAPI server locally."):
-            st.info("Starting FastAPI server on http://127.0.0.1:8000")
-            process = subprocess.Popen([sys.executable, "-m", "uvicorn", "pipeline.api:app", "--host", "127.0.0.1", "--port", "8000", "--reload"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-                )
-            st.session_state.api_process = process  # Store process in session
-            time.sleep(3)
-            st.success("🎉 API is LIVE!")
-            st.balloons()
-            st.markdown("### 📖 Open API Documentation:")
-            st.markdown("[Swagger UI - http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)")
-            st.code("http://127.0.0.1:8000/docs", language="text")
-
-        # Stop button for API (Added as per requirements)
-        if st.session_state.api_process is not None and st.button("🛑 Stop API", help="Stops the running FastAPI server."):
-            st.session_state.api_process.kill()
-            st.session_state.api_process = None
-            st.success("API stopped successfully!")
-
-        # Inference UI: Form for input features and predict via API (Added as per requirements)
-        st.subheader("🔍 Test Model Inference")
-        st.markdown("Enter feature values below and get predictions from the deployed API.")
-        if os.path.exists("models/feature_names.pkl"):
-            feature_names = pickle.load(open("models/feature_names.pkl", "rb"))
-            inputs = {}
-            for feature in feature_names:
-                inputs[feature] = st.number_input(f"{feature}", help=f"Enter value for {feature}.", value=0.0)
-
-            if st.button("Predict", help="Send inputs to the API for prediction."):
-                if st.session_state.api_process is None:
-                    st.error("API not running. Start the API first.")
-                else:
-                    try:
-                        payload = {"data": [inputs]}
-                        response = requests.post("http://127.0.0.1:8000/predict", json=payload)
-                        if response.status_code == 200:
-                            result = response.json()
-                            st.success(f"Prediction: {result['predictions']}")
-                        else:
-                            st.error(f"Error: {response.text}")
-                    except requests.exceptions.ConnectionError:
-                        st.error("API not running. Start the API first.")
-        else:
-            st.warning("Feature names not found. Save a model first.")
